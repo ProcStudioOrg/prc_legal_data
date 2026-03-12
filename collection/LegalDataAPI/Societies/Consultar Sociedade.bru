@@ -1,0 +1,71 @@
+meta {
+  name: Consultar Sociedade
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/society/{{inscricao}}
+  body: none
+  auth: none
+}
+
+headers {
+  X-API-KEY: {{api_key}}
+  Content-Type: application/json
+}
+
+vars:pre-request {
+  inscricao: 12345
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  ### Consultar Sociedade por Inscrição
+  
+  Retorna os dados da sociedade, seus advogados vinculados e vagas restantes.
+  
+  **Parâmetros de URL:**
+  - `inscricao`: Número de inscrição da sociedade
+  
+  **Headers obrigatórios:**
+  - `X-API-KEY`: Chave de API válida
+  
+  **Resposta de sucesso (200):**
+  
+  ``` json
+  {
+    "society": {
+      "id": 1,
+      "inscricao": "12345",
+      "name": "Silva & Associados",
+      "state": "SP",
+      "number_of_partners": 5,
+      "address": "Av. Paulista, 1000",
+      "zip_code": "01310-100",
+      "city": "São Paulo"
+    },
+    "lawyers": [
+      {
+        "id": 1,
+        "oab_id": "SP_123456",
+        "full_name": "João da Silva"
+      },
+      {
+        "id": 2,
+        "oab_id": "SP_654321",
+        "full_name": "Maria Santos"
+      }
+    ],
+    "remaining_spots": 3
+  }
+  ```
+  
+  **Erros possíveis:**
+  - 401: API key inválida
+  - 404: Sociedade não encontrada
+}

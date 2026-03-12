@@ -1,0 +1,539 @@
+# app/controllers/api/v1/lawyers_controller.rb
+module Api
+  module V1
+    class LawyersController < ApplicationController
+      # --- Existing before_action/after_action filters ---
+      before_action :authenticate_with_api_key
+      before_action :set_request_start_time
+      before_action :set_lawyer, only: [ :_debug, :update_lawyer, :update_crm ]
+      after_action :log_api_request
+
+      # --- Create lawyer action ---
+      def create_lawyer
+        begin
+          # 1. Validate the required parameters
+          create_params = lawyer_create_params
+
+          unless create_params[:oab_number].present? && create_params[:state].present? && create_params[:oab_id].present?
+            render json: { error: "Número OAB, Estado e OAB ID são obrigatórios" }, status: :bad_request
+            return
+          end
+
+          # 2. Get the oab_id from the request params
+          # State and oab_number are used only for validation purposes
+          state = create_params[:state].upcase
+          oab_number = create_params[:oab_number].strip
+          oab_id = create_params[:oab_id]
+
+          # 3. Use a transaction to prevent race conditions
+          lawyer = nil
+          Lawyer.transaction do
+            # Check if a lawyer with this OAB ID already exists (case-insensitive)
+            existing_lawyer = Lawyer.where("UPPER(oab_id) = ?", oab_id.upcase).first
+
+            if existing_lawyer
+              render json: {
+                error: "Advogado com OAB #{oab_id} já cadastrado",
+                lawyer_id: existing_lawyer.id
+              }, status: :conflict
+              return
+            end
+
+            # 4. Build the lawyer object with all parameters
+            @lawyer = Lawyer.new(create_params)
+            @lawyer.oab_id = oab_id
+
+            # 5. Save the lawyer
+            unless @lawyer.save
+              render json: {
+                error: "Erro ao criar advogado",
+                details: @lawyer.errors.full_messages
+              }, status: :unprocessable_entity
+              return
+            end
+
+            lawyer = @lawyer
+          end
+
+          # Only reached if transaction was successful
+          render json: {
+            message: "Advogado criado com sucesso",
+            lawyer: lawyer.as_json
+          }, status: :created
+        rescue ActionDispatch::Http::Parameters::ParseError => e
+          Rails.logger.error("JSON parse error in create_lawyer: #{e.message}")
+          render json: {
+            error: "Erro ao processar parâmetros JSON",
+            message: "Verifique se o formato JSON está correto",
+            error_type: e.class.name,
+            request_id: request.request_id
+          }, status: :bad_request
+        rescue => e
+          oab_id_text = defined?(oab_id) ? oab_id : "unknown"
+          Rails.logger.error("Error creating lawyer with OAB #{oab_id_text}: #{e.message}")
+          error_details = Rails.env.production? ? nil : { message: e.message, backtrace: e.backtrace&.first(5) }
+          Rails.logger.error("Error creating lawyer with OAB #{oab_id_text}: #{e.message}\n#{e.backtrace&.join("\n")}")
+          render json: {
+            error: "Erro interno ao criar advogado",
+            error_type: e.class.name,
+            details: error_details,
+            request_id: request.request_id
+          }, status: :internal_server_error
+        end
+      end
+
+      # --- MODIFIED show_by_oab action ---
+      def show_by_oab
+        oab = params[:oab]
+
+        # 1. Validate presence of OAB parameter
+        unless oab.present?
+          render json: { error: "Número OAB obrigatório" }, status: :bad_request
+          return
+        end
+
+        # 2. Find the initially requested lawyer record with eager loading
+        found_lawyer = Lawyer.includes(:principal_lawyer, :supplementary_lawyers, :lawyer_societies, :societies).find_by(oab_id: oab)
+
+        # 3. Handle case where no lawyer is found for the given OAB ID
+        unless found_lawyer
+          render json: { error: "Advogado Não Encontrado - Verifique o OAB ID" }, status: :not_found
+          return
+        end
+
+        # 4. Determine the principal lawyer and associated supplementaries
+        principal_lawyer = nil
+        supplementary_lawyers = []
+
+        if found_lawyer.principal_lawyer_id.present?
+          # The found lawyer is supplementary
+          principal_lawyer = found_lawyer.principal_lawyer
+
+          # Data integrity check: Ensure the principal record actually exists
+          unless principal_lawyer
+            error_message = "Data Integrity Issue: Supplementary Lawyer ID #{found_lawyer.id} has principal_lawyer_id #{found_lawyer.principal_lawyer_id}, but the principal record was not found."
+            Rails.logger.error(error_message)
+            render json: {
+              error: "Erro interno: Registro principal associado não encontrado.",
+              error_details: error_message,
+              request_id: request.request_id
+            }, status: :internal_server_error
+            return
+          end
+
+          # Fetch all supplementaries related to this principal (with societies)
+          supplementary_lawyers = principal_lawyer.supplementary_lawyers.includes(:lawyer_societies, :societies)
+        else
+          # The found lawyer is the principal
+          principal_lawyer = found_lawyer
+          supplementary_lawyers = principal_lawyer.supplementary_lawyers.includes(:lawyer_societies, :societies)
+        end
+
+        # 5. Perform status check on the PRINCIPAL lawyer's record
+        status_check = verify_lawyer_status(principal_lawyer)
+        unless status_check[:valid]
+          render json: { error: "Status Inválido (Principal): #{status_check[:message]}" }, status: :unprocessable_entity
+          return
+        end
+
+        # 6. Prepare the response structure using serializers
+        principal_response = LawyerSerializer.new(principal_lawyer, include_societies: true).as_json
+
+        # Format supplementary lawyer data using serializers
+        supplementaries_response = supplementary_lawyers.map do |supp|
+          LawyerSerializer.new(supp, include_societies: true).as_json
+        end
+
+        # Combine into the final response
+        final_response = {
+          principal: principal_response,
+          supplementaries: supplementaries_response
+        }
+
+        # 7. Render the final JSON response
+        render json: final_response, status: :ok
+
+      rescue ActiveRecord::RecordNotFound => e
+         Rails.logger.error("RecordNotFound in show_by_oab: #{e.message}")
+         error_details = Rails.env.production? ? nil : { message: e.message, backtrace: e.backtrace&.first(5) }
+         render json: {
+           error: "Erro interno ao buscar advogado",
+           error_type: e.class.name,
+           details: error_details,
+           request_id: request.request_id
+         }, status: :internal_server_error
+      rescue => e
+         Rails.logger.error("Error in show_by_oab for OAB #{oab}: #{e.message}\n#{e.backtrace.join("\n")}")
+         error_details = Rails.env.production? ? nil : { message: e.message, backtrace: e.backtrace&.first(5) }
+         render json: {
+           error: "Ocorreu um erro inesperado ao processar a solicitação.",
+           error_type: e.class.name,
+           details: error_details,
+           request_id: request.request_id
+         }, status: :internal_server_error
+      end
+
+      # --- NOVO MÉTODO: Buscar última OAB por estado ---
+      def last_oab_by_state
+        state = params[:state]&.upcase
+
+        # 1. Validar presença e formato do estado
+        unless state.present?
+          render json: { error: "Estado obrigatório" }, status: :bad_request
+          return
+        end
+
+        # 2. Validar se o estado está na lista de estados válidos
+        valid_states = [
+          'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
+          'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN',
+          'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
+        ]
+
+        unless valid_states.include?(state)
+          render json: {
+            error: "Estado inválido. Estados válidos: #{valid_states.join(', ')}"
+          }, status: :bad_request
+          return
+        end
+
+        begin
+          # 3. Buscar todos os advogados do estado com base no oab_id
+          # O oab_id tem o formato STATE_NUMBER, exemplo: MG_170222
+          lawyers_in_state = Lawyer.where("oab_id LIKE ?", "#{state}_%")
+
+          # 4. Verificar se existem registros para o estado
+          if lawyers_in_state.empty?
+            render json: {
+              state: state,
+              message: "Nenhum advogado encontrado para o estado #{state}",
+              last_oab: nil,
+              total_lawyers: 0
+            }, status: :ok
+            return
+          end
+
+          # 5. Extrair os números do OAB a partir do oab_id (formato STATE_NUMBER)
+          # e encontrar o maior número
+          max_oab = lawyers_in_state.map do |lawyer|
+            # Extrai o número do OAB do oab_id
+            oab_parts = lawyer.oab_id.split('_')
+            if oab_parts.length == 2
+              # Converter para inteiro para comparação numérica correta
+              [lawyer, oab_parts[1].to_i]
+            else
+              [lawyer, 0]
+            end
+          end.max_by { |lawyer, number| number }
+
+          if max_oab && max_oab[0]
+            lawyer_with_max_oab = max_oab[0]
+
+            # 6. Preparar resposta com informações do advogado
+            response_data = {
+              state: state,
+              last_oab: lawyer_with_max_oab.oab_id,
+              oab_number: lawyer_with_max_oab.oab_number,
+              lawyer_name: lawyer_with_max_oab.full_name,
+              city: lawyer_with_max_oab.city,
+              situation: lawyer_with_max_oab.situation,
+              total_lawyers: lawyers_in_state.count,
+              updated_at: lawyer_with_max_oab.updated_at
+            }
+
+            render json: response_data, status: :ok
+          else
+            render json: {
+              error: "Erro ao encontrar advogado com maior número OAB"
+            }, status: :internal_server_error
+          end
+
+        rescue => e
+          Rails.logger.error("Error in last_oab_by_state for state #{state}: #{e.message}\n#{e.backtrace.join("\n")}")
+          render json: {
+            error: "Erro interno ao buscar última OAB do estado"
+          }, status: :internal_server_error
+        end
+      end
+
+      # --- Update lawyer action ---
+      def update_lawyer
+        oab = params[:oab]
+        unless oab&.match?(/^[A-Z]{2}_\d+$/)
+          render json: { error: "Formato OAB inválido. Use: ESTADO_NUMERO (ex: PR_115685)" }, status: :bad_request
+          return
+        end
+        unless @lawyer
+          render json: { error: "Advogado não encontrado" }, status: :not_found
+          return
+        end
+
+        # Get the update parameters from the request
+        update_params = lawyer_update_params
+
+        if update_params.empty?
+          render json: { error: "Nenhum parâmetro de atualização fornecido" }, status: :bad_request
+          return
+        end
+
+        begin
+          if @lawyer.update(update_params)
+            render json: {
+              message: "Advogado atualizado com sucesso",
+              lawyer: @lawyer.as_json
+            }, status: :ok
+          else
+            render json: {
+              error: "Erro ao atualizar advogado",
+              details: @lawyer.errors.full_messages
+            }, status: :unprocessable_entity
+          end
+        rescue => e
+          Rails.logger.error("Error updating lawyer #{@lawyer.oab_id}: #{e.message}")
+          error_details = Rails.env.production? ? nil : { message: e.message, backtrace: e.backtrace&.first(5) }
+          Rails.logger.error("Error updating lawyer #{@lawyer.oab_id}: #{e.message}\n#{e.backtrace&.join("\n")}")
+          render json: {
+            error: "Erro interno ao atualizar advogado",
+            error_type: e.class.name,
+            details: error_details,
+            request_id: request.request_id
+          }, status: :internal_server_error
+        end
+      end
+
+      # --- Update CRM data action ---
+      # This endpoint allows updating/adding any fields to the crm_data JSON
+      # It merges new data with existing data, allowing partial updates
+      def update_crm
+        unless @lawyer
+          render json: { error: "Advogado não encontrado" }, status: :not_found
+          return
+        end
+
+        crm_params = params.permit(
+          :researched, :last_research_date, :trial_active,
+          :tried_procstudio, :mail_marketing, :contacted,
+          :contacted_by, :contacted_when, :contact_notes,
+          mail_marketing_origin: []
+        ).to_h
+
+        # Also allow any additional custom fields via a nested 'custom' or 'extra' param
+        extra_params = params[:extra].permit!.to_h if params[:extra].present?
+
+        if crm_params.empty? && extra_params.nil?
+          render json: { error: "Nenhum parâmetro CRM fornecido" }, status: :bad_request
+          return
+        end
+
+        begin
+          # Merge with existing crm_data (deep merge to preserve nested structures)
+          current_crm = @lawyer.crm_data || {}
+          new_crm = current_crm.deep_merge(crm_params.compact)
+          new_crm = new_crm.deep_merge({ 'extra' => extra_params }) if extra_params.present?
+
+          if @lawyer.update(crm_data: new_crm)
+            render json: {
+              message: "Dados CRM atualizados com sucesso",
+              oab_id: @lawyer.oab_id,
+              crm_data: @lawyer.crm_data
+            }, status: :ok
+          else
+            render json: {
+              error: "Erro ao atualizar dados CRM",
+              details: @lawyer.errors.full_messages
+            }, status: :unprocessable_entity
+          end
+        rescue => e
+          Rails.logger.error("Error updating CRM for lawyer #{@lawyer.oab_id}: #{e.message}")
+          error_details = Rails.env.production? ? nil : { message: e.message, backtrace: e.backtrace&.first(5) }
+          render json: {
+            error: "Erro interno ao atualizar dados CRM",
+            error_type: e.class.name,
+            details: error_details,
+            request_id: request.request_id
+          }, status: :internal_server_error
+        end
+      end
+
+      # --- Existing _debug action ---
+      def _debug
+        if @lawyer
+          status_check = verify_lawyer_status(@lawyer)
+
+          profile_picture_url = format_image_url(@lawyer.profile_picture, :profile)
+          cna_picture_url = format_image_url(@lawyer.cna_picture, :cna)
+
+          regular_attrs = {
+            situation: @lawyer.situation,
+            full_name: @lawyer.full_name,
+            oab_number: @lawyer.oab_number,
+            city: @lawyer.city,
+            state: @lawyer.state,
+            address: @lawyer.address,
+            original_address: @lawyer.original_address,
+            zip_code: @lawyer.zip_code,
+            phone_number_1: @lawyer.phone_number_1,
+            phone_number_2: @lawyer.phone_number_2,
+            phone_1_has_whatsapp: @lawyer.phone_1_has_whatsapp,
+            phone_2_has_whatsapp: @lawyer.phone_2_has_whatsapp,
+            supplementary: @lawyer.suplementary,
+            profession: @lawyer.profession,
+            profile_picture: profile_picture_url,
+            principal_lawyer_id: @lawyer.principal_lawyer_id
+          }
+
+          debug_attrs = {
+            folder_id: @lawyer.folder_id,
+            cna_picture: cna_picture_url,
+            is_procstudio: @lawyer.is_procstudio,
+            has_society: @lawyer.lawyer_societies.exists?,
+            societies: @lawyer.societies.pluck(:id, :name).map { |id, name| {id: id, name: name} },
+            specialty: @lawyer.specialty,
+            bio: @lawyer.bio,
+            email: @lawyer.email,
+            instagram: @lawyer.instagram,
+            website: @lawyer.website,
+            created_at: @lawyer.created_at,
+            updated_at: @lawyer.updated_at
+          }
+
+          request_info = {
+            requester: {
+              user_id: @current_user&.id,
+              api_key_id: @api_key&.id
+            },
+            ip: request.ip,
+            user_agent: request.user_agent,
+            request_time: @request_start_time,
+            response_time: Time.now,
+            duration_ms: ((Time.now - @request_start_time) * 1000).round(2)
+          }
+
+          render json: {
+            status_validation: status_check,
+            regular_view: regular_attrs,
+            debug_info: debug_attrs,
+            request_context: request_info
+          }
+        else
+          render json: { error: "Lawyer not found" }, status: :not_found
+        end
+      end
+
+      # --- Private methods ---
+      private
+
+      def format_image_url(image_name, type)
+        return nil unless image_name.present?
+
+        s3_config = Rails.application.config.s3
+
+        if type == :profile
+          bucket = s3_config[:profile_pictures_bucket]
+        else
+          bucket = s3_config[:cna_pictures_bucket]
+        end
+
+        "https://#{bucket}.s3.amazonaws.com/#{image_name}"
+      end
+
+      def verify_lawyer_status(lawyer)
+        situation = lawyer.situation.to_s.downcase
+
+        if situation.include?("cancelado")
+          {
+            valid: false,
+            message: "Advogado consta como Cancelado no banco de dados",
+            code: "cancelled_registration"
+          }
+        elsif situation.include?("falecido")
+          {
+            valid: false,
+            message: "Advogado consta como Falecido no banco de dados",
+            code: "deceased"
+          }
+        else
+          {
+            valid: true,
+            message: "Situação regular",
+            code: "active"
+          }
+        end
+      end
+
+      def set_lawyer
+        oab = params[:oab]
+        @lawyer = Lawyer.find_by(oab_id: oab) if oab.present?
+      end
+
+      def set_request_start_time
+        @request_start_time = Time.now
+        # Store request_id in RequestStore for correlation
+        RequestStore.store[:request_id] = request.request_id || SecureRandom.uuid
+
+        # Set content type parsing strategy if not specified by client
+        if request.content_type.blank? && request.headers["Content-Type"].blank? && request.post?
+          request.headers["Content-Type"] = "application/json"
+        end
+      end
+
+      def authenticate_with_api_key
+        api_key = request.headers["X-API-KEY"]
+        @api_key = ApiKey.find_by(key: api_key, active: true)
+
+        unless @api_key
+          render json: {
+            error: "Invalid API Key",
+            request_id: RequestStore.store[:request_id]
+          }, status: :unauthorized
+          return
+        end
+
+        @current_user = @api_key.user
+      end
+
+      def log_api_request
+        country_code = Geocoder.search(request.ip).first&.country_code
+
+        ApiLog.create(
+          user_id: @current_user&.id,
+          api_key_id: @api_key&.id,
+          endpoint: request.path,
+          ip_address: request.ip,
+          request_method: request.method,
+          response_status: response.status,
+          request_size: request.content_length || 0,
+          response_time: (Time.now - @request_start_time),
+          country_code: country_code,
+          browser: request.user_agent,
+          requested_oab: params[:oab] || params[:state] # Log OAB ou Estado
+        )
+      rescue => e
+        # Use standard logger method without relying on push_tags
+        Rails.logger.error("Failed to log API request: #{e.message}")
+      end
+
+      # Strong parameters for lawyer updates
+      def lawyer_update_params
+        params.permit(
+          :full_name, :oab_number, :city, :state, :address, :original_address,
+          :zip_code, :phone_number_1, :phone_number_2, :phone_1_has_whatsapp, :phone_2_has_whatsapp,
+          :profession, :situation, :suplementary, :is_procstudio,
+          :specialty, :bio, :email, :instagram, :website, :profile_picture, :cna_picture,
+          :social_name, :has_society, :cna_link, :detail_url, :zip_address, :society_basic_details
+        )
+      end
+
+      # Strong parameters for lawyer creation
+      def lawyer_create_params
+        params.permit(
+          :full_name, :oab_number, :oab_id, :city, :state, :address, :original_address,
+          :zip_code, :phone_number_1, :phone_number_2, :phone_1_has_whatsapp, :phone_2_has_whatsapp,
+          :profession, :situation, :suplementary, :is_procstudio,
+          :specialty, :bio, :email, :instagram, :website, :profile_picture, :cna_picture,
+          :principal_lawyer_id, :folder_id, :social_name, :has_society, :cna_link, :detail_url, :zip_address, :society_basic_details
+        )
+      end
+    end
+  end
+end

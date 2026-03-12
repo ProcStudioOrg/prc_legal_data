@@ -1,0 +1,86 @@
+# config/initializers/custom_logger.rb
+
+# Configure custom logger format with request_id for correlation
+require 'active_support/logger'
+require 'request_store'
+
+# Ensure RequestStore is available for all threads
+Rails.application.config.middleware.use RequestStore::Middleware
+
+# Custom formatter that includes timestamp, severity, request_id and more
+class CustomLogFormatter < ActiveSupport::Logger::SimpleFormatter
+  # Support for ActiveSupport::TaggedLogging
+  attr_accessor :current_tags
+
+  def initialize
+    super
+    @current_tags = []
+  end
+
+  # Required method for ActiveSupport::TaggedLogging
+  def push_tags(*tags)
+    @current_tags.concat(tags)
+  end
+
+  # Required method for ActiveSupport::TaggedLogging
+  def pop_tags(size = 1)
+    @current_tags.pop(size)
+  end
+
+  # Required method for ActiveSupport::TaggedLogging
+  def clear_tags!
+    @current_tags.clear
+  end
+
+  def call(severity, timestamp, progname, msg)
+    request_id = RequestStore.store[:request_id] || "no-request-id"
+    formatted_timestamp = timestamp.strftime("%Y-%m-%d %H:%M:%S.%L")
+
+    # Format the message based on its type
+    formatted_msg = case msg
+                    when String
+                      msg
+                    when Exception
+                      "#{msg.message} (#{msg.class}) #{msg.backtrace&.join("\n")}"
+                    else
+                      msg.inspect
+                    end
+
+    # Add tags if present
+    tags_text = @current_tags.collect { |tag| "[#{tag}] " }.join if @current_tags.any?
+
+    "[#{formatted_timestamp}] [#{severity}] #{tags_text}[#{request_id}] #{formatted_msg}\n"
+  end
+end
+
+# Configure the Rails logger if not in test environment
+unless Rails.env.test?
+  # Set log path (except in production where we use STDOUT)
+  unless Rails.env.production?
+    logfile = File.open(Rails.root.join('log', "#{Rails.env}.log"), 'a')
+    logfile.sync = true
+    Rails.logger = ActiveSupport::Logger.new(logfile)
+  end
+
+  # Wrap with TaggedLogging and set formatter
+  Rails.logger = ActiveSupport::TaggedLogging.new(Rails.logger)
+  Rails.logger.formatter = CustomLogFormatter.new
+
+  # Set log level from environment or default to info
+  Rails.logger.level = ActiveSupport::Logger.const_get(
+    ENV.fetch('RAILS_LOG_LEVEL', 'info').upcase
+  )
+
+  # Output message confirming logger configuration
+  Rails.logger.info "Custom logger initialized with level: #{Rails.logger.level}"
+end
+
+# Add custom methods to ActiveRecord::Base for improved logging
+ActiveSupport.on_load(:active_record) do
+  class ActiveRecord::Base
+    def self.log_with_context(message, level: :info, context: {})
+      context_str = context.map { |k, v| "#{k}=#{v}" }.join(' ')
+      Rails.logger.send(level, "#{message} #{context_str}")
+    end
+  end
+end

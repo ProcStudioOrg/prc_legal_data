@@ -1,0 +1,68 @@
+meta {
+  name: Consultar Advogado por OAB
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/lawyer/{{oab_id}}
+  body: none
+  auth: none
+}
+
+headers {
+  X-API-KEY: {{api_key}}
+  Content-Type: application/json
+}
+
+vars:pre-request {
+  oab_id: PR_54159
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  ### Consultar Advogado por OAB ID
+  
+  Retorna os dados do advogado principal e seus suplementares.
+  
+  **Parâmetros:**
+  - `oab_id`: ID OAB no formato ESTADO_NUMERO (ex: SP_123456, MG_170222)
+  
+  **Headers obrigatórios:**
+  - `X-API-KEY`: Chave de API válida
+  
+  **Resposta de sucesso (200):**
+  
+  ``` json
+  {
+    "principal": {
+      "id": 1,
+      "full_name": "João da Silva",
+      "oab_id": "SP_123456",
+      "oab_number": "123456",
+      "state": "SP",
+      "city": "São Paulo",
+      "situation": "Regular",
+      "profile_picture": "https://oabapi-profile-pic.s3.amazonaws.com/...",
+      "original_address": "Rua Example, 123"
+    },
+    "supplementaries": [
+      {
+        "id": 2,
+        "full_name": "João da Silva",
+        "oab_id": "RJ_654321",
+        "state": "RJ"
+      }
+    ]
+  }
+  ```
+  
+  **Erros possíveis:**
+  - 401: API key inválida ou ausente
+  - 404: Advogado não encontrado
+  - 422: Status do advogado inválido (cancelado/falecido)
+}

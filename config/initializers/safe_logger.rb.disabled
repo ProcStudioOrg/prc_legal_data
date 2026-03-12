@@ -1,0 +1,90 @@
+# config/initializers/safe_logger.rb
+#
+# This initializer provides a safer approach to logging enhancements
+# without interfering with Rails' built-in TaggedLogging.
+
+# Only run this code if not in test environment
+unless Rails.env.test?
+  require 'request_store'
+
+  # Ensure RequestStore is available
+  Rails.application.config.middleware.use RequestStore::Middleware
+
+  # Configure the base logger
+  if Rails.env.production?
+    # In production, we use STDOUT (already configured in production.rb)
+    base_logger = Rails.logger
+  else
+    # In development, use a file logger
+    logfile = File.open(Rails.root.join('log', "#{Rails.env}.log"), 'a')
+    logfile.sync = true
+    base_logger = ActiveSupport::Logger.new(logfile)
+
+    # Copy existing formatter if present
+    base_logger.formatter = Rails.logger.formatter if Rails.logger.formatter
+  end
+
+  # Set log level from environment or default to info
+  log_level_name = ENV.fetch('RAILS_LOG_LEVEL', 'info').upcase
+  if ActiveSupport::Logger.constants.include?(log_level_name.to_sym)
+    base_logger.level = ActiveSupport::Logger.const_get(log_level_name)
+  else
+    base_logger.level = ActiveSupport::Logger::INFO
+  end
+
+  # Create a custom formatter that adds request_id
+  original_formatter = base_logger.formatter || ActiveSupport::Logger::SimpleFormatter.new
+  base_logger.formatter = proc do |severity, timestamp, progname, msg|
+    # Get the formatted message from the original formatter
+    formatted_msg = if original_formatter.respond_to?(:call)
+                      original_formatter.call(severity, timestamp, progname, msg)
+                    else
+                      "#{severity}: #{msg}\n"
+                    end
+
+    # Add request_id if available (unless it's already included)
+    request_id = RequestStore.store[:request_id]
+    if request_id && !formatted_msg.include?(request_id)
+      # Insert request_id near the beginning but after any timestamp
+      if formatted_msg.match?(/^\[\d{4}-\d{2}-\d{2}/)
+        # If there's a timestamp at the start, insert after it
+        formatted_msg.sub!(/^(\[\d{4}-\d{2}-\d{2}[^\]]*\])/, "\\1 [#{request_id}]")
+      else
+        # Otherwise prepend
+        formatted_msg = "[#{request_id}] #{formatted_msg}"
+      end
+    end
+
+    formatted_msg
+  end
+
+  # Ensure the logger is wrapped with TaggedLogging
+  if !base_logger.is_a?(ActiveSupport::TaggedLogging)
+    base_logger = ActiveSupport::TaggedLogging.new(base_logger)
+  end
+
+  # Replace the Rails logger
+  Rails.logger = base_logger
+
+  # Add a convenience method for logging with context
+  Rails.logger.define_singleton_method(:with_context) do |context = {}, &block|
+    # Store original context
+    original_context = RequestStore.store[:logging_context] || {}
+
+    begin
+      # Merge in the new context
+      RequestStore.store[:logging_context] = original_context.merge(context)
+
+      # Add context as tags
+      self.tagged(context.map { |k, v| "#{k}=#{v}" }) do
+        block.call if block
+      end
+    ensure
+      # Restore original context
+      RequestStore.store[:logging_context] = original_context
+    end
+  end
+
+  # Output message confirming logger configuration
+  Rails.logger.info "Safe logger initialized with level: #{Rails.logger.level}"
+end

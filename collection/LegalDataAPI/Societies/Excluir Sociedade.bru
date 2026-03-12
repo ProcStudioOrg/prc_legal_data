@@ -1,0 +1,62 @@
+meta {
+  name: Excluir Sociedade
+  type: http
+  seq: 4
+}
+
+delete {
+  url: {{base_url}}/society/{{inscricao}}
+  body: none
+  auth: none
+}
+
+headers {
+  X-API-KEY: {{api_key}}
+}
+
+vars:pre-request {
+  inscricao: 123456
+}
+
+settings {
+  encodeUrl: true
+}
+
+docs {
+  ### Excluir Sociedade
+
+  Exclui uma sociedade e todas as associações com advogados (LawyerSociety).
+
+  **Parâmetros de URL:**
+  - `inscricao`: Número de inscrição da sociedade
+
+  **Headers obrigatórios:**
+  - `X-API-KEY`: Chave de API válida
+
+  **Comportamento:**
+  - Remove todas as associações LawyerSociety automaticamente (cascade delete)
+  - Os advogados NÃO são excluídos, apenas a associação com a sociedade
+  - Esta ação é irreversível
+
+  **Resposta de sucesso (200):**
+
+  ```json
+  {
+    "message": "Sociedade excluída com sucesso",
+    "deleted_society": {
+      "id": 123,
+      "inscricao": 123456,
+      "name": "Silva & Associados",
+      "lawyers_removed": 3
+    }
+  }
+  ```
+
+  **Erros possíveis:**
+  - 401: API key inválida
+  - 404: Sociedade não encontrada
+  - 422: Erro de validação (sociedade não pode ser excluída)
+  - 500: Erro interno
+
+  **Nota:** Quando a última associação de advogado com uma sociedade é removida via endpoint de LawyerSociety, a sociedade é automaticamente excluída para evitar registros órfãos.
+}

@@ -1,0 +1,72 @@
+meta {
+  name: Atualizar Vinculo
+  type: http
+  seq: 3
+}
+
+patch {
+  url: {{base_url}}/lawyer_societies/{{id}}
+  body: json
+  auth: none
+}
+
+headers {
+  X-API-KEY: {{api_key}}
+  Content-Type: application/json
+}
+
+vars:pre-request {
+  id: 1
+}
+
+body:json {
+  {
+    "partnership_type": "Associado",
+    "cna_link": "https://cna.oab.org.br/vinculo/456"
+  }
+}
+
+settings {
+  encodeUrl: true
+}
+
+docs {
+  ### Atualizar Vínculo Advogado-Sociedade
+
+  Atualiza dados de um vínculo existente.
+
+  **Parâmetros de URL:**
+  - `id`: ID do vínculo (lawyer_society)
+
+  **Headers obrigatórios:**
+  - `X-API-KEY`: Chave de API válida
+  - `Content-Type`: application/json
+
+  **Campos atualizáveis:**
+  - `partnership_type`: Tipo de participação (Sócio, Associado, Sócio de Serviço)
+  - `cna_link`: Link do vínculo no CNA
+
+  **Nota:** `lawyer_id` e `society_id` não podem ser alterados.
+
+  **Resposta de sucesso (200):**
+
+  ``` json
+  {
+    "message": "Vínculo atualizado com sucesso",
+    "lawyer_society": {
+      "id": 1,
+      "lawyer_id": 1,
+      "society_id": 1,
+      "partnership_type": "Associado",
+      "cna_link": "https://cna.oab.org.br/vinculo/456",
+      "updated_at": "2024-01-10T14:00:00Z"
+    }
+  }
+  ```
+
+  **Erros possíveis:**
+  - 400: Parâmetros inválidos
+  - 401: API key inválida
+  - 404: Vínculo não encontrado
+  - 422: Erro de validação
+}

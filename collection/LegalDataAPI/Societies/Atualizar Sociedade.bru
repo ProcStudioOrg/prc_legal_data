@@ -1,0 +1,80 @@
+meta {
+  name: Atualizar Sociedade
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{base_url}}/society/{{inscricao}}/update
+  body: json
+  auth: none
+}
+
+headers {
+  X-API-KEY: {{api_key}}
+  Content-Type: application/json
+}
+
+vars:pre-request {
+  inscricao: 12345
+}
+
+body:json {
+  {
+    "name": "Silva, Santos & Advogados Associados",
+    "number_of_partners": 5,
+    "phone": "(11) 3456-9999",
+    "situacao": "Ativa"
+  }
+}
+
+settings {
+  encodeUrl: true
+}
+
+docs {
+  ### Atualizar Sociedade
+
+  Atualiza dados de uma sociedade existente. Apenas os campos enviados serão atualizados.
+
+  **Parâmetros de URL:**
+  - `inscricao`: Número de inscrição da sociedade
+
+  **Headers obrigatórios:**
+  - `X-API-KEY`: Chave de API válida
+  - `Content-Type`: application/json
+
+  **Campos atualizáveis:**
+  - `name`: Nome da sociedade
+  - `state`: Sigla do estado
+  - `number_of_partners`: Número máximo de sócios
+  - `address`: Endereço
+  - `zip_code`: CEP
+  - `city`: Cidade
+  - `phone`: Telefone principal
+  - `phone_number_2`: Telefone secundário
+  - `situacao`: Situação
+  - `society_link`: Link CNA
+
+  **Nota:** `inscricao` não pode ser alterado.
+
+  **Resposta de sucesso (200):**
+
+  ``` json
+  {
+    "message": "Society updated successfully",
+    "society": {
+      "id": 1,
+      "inscricao": "12345",
+      "name": "Silva, Santos & Advogados Associados",
+      ...
+    }
+  }
+  ```
+
+  **Erros possíveis:**
+  - 400: Parâmetros inválidos
+  - 401: API key inválida
+  - 404: Sociedade não encontrada
+  - 422: Erro de validação (ex: number_of_partners menor que advogados atuais)
+}

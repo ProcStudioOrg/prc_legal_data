@@ -1,0 +1,43 @@
+meta {
+  name: Debug Advogado
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{base_url}}/lawyer/{{oab_id}}/debug
+  body: none
+  auth: none
+}
+
+headers {
+  X-API-KEY: {{api_key}}
+  Content-Type: application/json
+}
+
+vars:pre-request {
+  oab_id: SP_123456
+}
+
+settings {
+  encodeUrl: true
+}
+
+docs {
+  ### Debug Advogado
+
+  Retorna informações detalhadas de debug sobre um advogado. Útil para diagnóstico.
+
+  **Parâmetros de URL:**
+  - `oab_id`: ID OAB do advogado (formato: ESTADO_NUMERO)
+
+  **Headers obrigatórios:**
+  - `X-API-KEY`: Chave de API válida
+
+  **Resposta de sucesso (200):**
+  Retorna todos os dados do advogado com informações adicionais de debug.
+
+  **Erros possíveis:**
+  - 401: API key inválida
+  - 404: Advogado não encontrado
+}

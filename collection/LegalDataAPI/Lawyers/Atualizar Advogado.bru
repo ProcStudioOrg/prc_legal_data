@@ -1,0 +1,71 @@
+meta {
+  name: Atualizar Advogado
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{base_url}}/lawyer/{{oab_id}}/update
+  body: json
+  auth: none
+}
+
+headers {
+  X-API-KEY: {{api_key}}
+  Content-Type: application/json
+}
+
+vars:pre-request {
+  oab_id: SP_123456
+}
+
+body:json {
+  {
+    "city": "Campinas",
+    "phone_number_1": "(19) 99999-7777",
+    "phone_1_has_whatsapp": true,
+    "specialty": "Direito Empresarial",
+    "bio": "Advogado com mais de 10 anos de experiência"
+  }
+}
+
+settings {
+  encodeUrl: true
+}
+
+docs {
+  ### Atualizar Advogado
+
+  Atualiza dados de um advogado existente. Apenas os campos enviados serão atualizados (partial update).
+
+  **Parâmetros de URL:**
+  - `oab_id`: ID OAB do advogado (formato: ESTADO_NUMERO)
+
+  **Headers obrigatórios:**
+  - `X-API-KEY`: Chave de API válida
+  - `Content-Type`: application/json
+
+  **Campos atualizáveis:**
+  Todos os campos do advogado podem ser atualizados, exceto `oab_id`.
+
+  **Resposta de sucesso (200):**
+
+  ``` json
+  {
+    "message": "Lawyer updated successfully",
+    "lawyer": {
+      "id": 1,
+      "full_name": "João da Silva",
+      "oab_id": "SP_123456",
+      "city": "Campinas",
+      ...
+    }
+  }
+  ```
+
+  **Erros possíveis:**
+  - 400: Parâmetros inválidos
+  - 401: API key inválida
+  - 404: Advogado não encontrado
+  - 422: Erro de validação
+}

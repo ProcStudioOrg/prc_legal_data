@@ -1,0 +1,55 @@
+meta {
+  name: Ultimo Advogado do Estado
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{base_url}}/lawyer/state/{{state}}/last
+  body: none
+  auth: none
+}
+
+headers {
+  X-API-KEY: {{api_key}}
+  Content-Type: application/json
+}
+
+vars:pre-request {
+  state: SP
+}
+
+settings {
+  encodeUrl: true
+}
+
+docs {
+  ### Último Advogado Cadastrado por Estado
+
+  Retorna o advogado com o maior número de OAB cadastrado em um determinado estado.
+  Útil para identificar o último advogado processado durante scraping.
+
+  **Parâmetros de URL:**
+  - `state`: Sigla do estado (ex: SP, RJ, MG)
+
+  **Headers obrigatórios:**
+  - `X-API-KEY`: Chave de API válida
+
+  **Resposta de sucesso (200):**
+
+  ``` json
+  {
+    "lawyer": {
+      "id": 12345,
+      "full_name": "Último Advogado",
+      "oab_id": "SP_999999",
+      "oab_number": "999999",
+      "state": "SP"
+    }
+  }
+  ```
+
+  **Erros possíveis:**
+  - 401: API key inválida
+  - 404: Nenhum advogado encontrado para o estado
+}

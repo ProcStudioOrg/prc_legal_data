@@ -1,0 +1,83 @@
+meta {
+  name: Criar Sociedade
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{base_url}}/society/create
+  body: json
+  auth: none
+}
+
+headers {
+  X-API-KEY: {{api_key}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "inscricao": "67890",
+    "name": "Santos & Advogados Associados",
+    "state": "SP",
+    "number_of_partners": 3,
+    "address": "Rua Augusta, 500, Sala 101",
+    "zip_code": "01305-000",
+    "city": "São Paulo",
+    "phone": "(11) 3456-7890",
+    "phone_number_2": "(11) 3456-7891",
+    "situacao": "Ativa",
+    "society_link": "https://cna.oab.org.br/sociedade/67890"
+  }
+}
+
+settings {
+  encodeUrl: true
+}
+
+docs {
+  ### Criar Nova Sociedade
+
+  Cria um novo registro de sociedade de advogados.
+
+  **Headers obrigatórios:**
+  - `X-API-KEY`: Chave de API válida
+  - `Content-Type`: application/json
+
+  **Campos obrigatórios:**
+  - `inscricao`: Número de inscrição (único)
+  - `name`: Nome da sociedade
+  - `state`: Sigla do estado (uppercase)
+  - `number_of_partners`: Número máximo de sócios (maior que 0)
+
+  **Campos opcionais:**
+  - `oab_id`: ID OAB (auto-gerado se não fornecido, formato: ESTADO_SOC_INSCRICAO)
+  - `address`: Endereço
+  - `zip_code`: CEP
+  - `city`: Cidade
+  - `phone`: Telefone principal
+  - `phone_number_2`: Telefone secundário
+  - `situacao`: Situação da sociedade
+  - `society_link`: Link para a sociedade no CNA
+
+  **Resposta de sucesso (201):**
+
+  ``` json
+  {
+    "message": "Society created successfully",
+    "society": {
+      "id": 1,
+      "inscricao": "67890",
+      "name": "Santos & Advogados Associados",
+      "oab_id": "SP_SOC_67890",
+      ...
+    }
+  }
+  ```
+
+  **Erros possíveis:**
+  - 400: Parâmetros ausentes ou inválidos
+  - 401: API key inválida
+  - 409: Sociedade já existe (inscrição duplicada)
+  - 422: Erro de validação
+}

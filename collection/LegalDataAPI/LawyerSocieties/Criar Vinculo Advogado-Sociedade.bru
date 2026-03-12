@@ -1,0 +1,90 @@
+meta {
+  name: Criar Vinculo Advogado-Sociedade
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{base_url}}/lawyer_societies
+  body: json
+  auth: none
+}
+
+headers {
+  X-API-KEY: {{api_key}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "lawyer_id": 1,
+    "society_id": 1,
+    "partnership_type": "Sócio",
+    "cna_link": "https://cna.oab.org.br/vinculo/123"
+  }
+}
+
+settings {
+  encodeUrl: true
+}
+
+docs {
+  ### Criar Vínculo Advogado-Sociedade
+
+  Cria uma relação entre um advogado e uma sociedade.
+
+  **Headers obrigatórios:**
+  - `X-API-KEY`: Chave de API válida
+  - `Content-Type`: application/json
+
+  **Campos obrigatórios:**
+  - `lawyer_id`: ID do advogado
+  - `society_id`: ID da sociedade
+  - `partnership_type`: Tipo de participação (enum)
+
+  **Valores válidos para partnership_type:**
+  - `Sócio`: Sócio da sociedade
+  - `Associado`: Advogado associado
+  - `Sócio de Serviço`: Sócio de serviço
+
+  **Campos opcionais:**
+  - `cna_link`: Link do vínculo no CNA
+
+  **Validações:**
+  - A sociedade deve ter capacidade para mais advogados
+  - Não pode haver duplicata de lawyer_id + society_id
+
+  **Resposta de sucesso (201):**
+
+  ``` json
+  {
+    "message": "Relação entre advogado e sociedade criada com sucesso",
+    "lawyer_society": {
+      "id": 1,
+      "lawyer_id": 1,
+      "society_id": 1,
+      "partnership_type": "Sócio",
+      "cna_link": "https://cna.oab.org.br/vinculo/123",
+      "created_at": "2024-01-10T12:00:00Z",
+      "updated_at": "2024-01-10T12:00:00Z"
+    },
+    "society": {
+      "id": 1,
+      "name": "Silva & Associados",
+      "inscricao": "12345"
+    },
+    "lawyer": {
+      "id": 1,
+      "oab_id": "SP_123456",
+      "full_name": "João da Silva"
+    }
+  }
+  ```
+
+  **Erros possíveis:**
+  - 400: Parâmetros ausentes
+  - 401: API key inválida
+  - 404: Advogado ou sociedade não encontrado
+  - 409: Vínculo já existe
+  - 422: Sociedade sem capacidade ou erro de validação
+}

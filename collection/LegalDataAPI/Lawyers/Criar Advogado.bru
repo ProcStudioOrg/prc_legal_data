@@ -1,0 +1,110 @@
+meta {
+  name: Criar Advogado
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{base_url}}/lawyer/create
+  body: json
+  auth: none
+}
+
+headers {
+  X-API-KEY: {{api_key}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "full_name": "Maria Santos",
+    "oab_number": "789012",
+    "oab_id": "SP_789012",
+    "state": "SP",
+    "city": "São Paulo",
+    "address": "Rua das Flores, 456",
+    "original_address": "Rua das Flores, 456 - Centro",
+    "zip_code": "01234-567",
+    "phone_number_1": "(11) 99999-8888",
+    "phone_number_2": "(11) 3333-4444",
+    "phone_1_has_whatsapp": true,
+    "phone_2_has_whatsapp": false,
+    "profession": "Advogado",
+    "situation": "Regular",
+    "suplementary": false,
+    "is_procstudio": false,
+    "specialty": "Direito Civil",
+    "bio": "Advogada especializada em direito civil e família",
+    "email": "maria.santos@example.com",
+    "instagram": "@mariasantos.adv",
+    "website": "https://mariasantos.adv.br"
+  }
+}
+
+settings {
+  encodeUrl: true
+}
+
+docs {
+  ### Criar Novo Advogado
+
+  Cria um novo registro de advogado no sistema.
+
+  **Headers obrigatórios:**
+  - `X-API-KEY`: Chave de API válida
+  - `Content-Type`: application/json
+
+  **Campos obrigatórios:**
+  - `full_name`: Nome completo
+  - `oab_number`: Número da OAB
+  - `oab_id`: ID OAB (formato: ESTADO_NUMERO)
+  - `state`: Sigla do estado (uppercase)
+
+  **Campos opcionais:**
+  - `city`: Cidade
+  - `address`: Endereço
+  - `original_address`: Endereço original
+  - `zip_code`: CEP
+  - `zip_address`: Endereço do CEP
+  - `phone_number_1`: Telefone principal
+  - `phone_number_2`: Telefone secundário
+  - `phone_1_has_whatsapp`: Boolean
+  - `phone_2_has_whatsapp`: Boolean
+  - `profession`: Profissão
+  - `situation`: Situação (Regular, etc.)
+  - `suplementary`: Boolean (advogado suplementar)
+  - `is_procstudio`: Boolean
+  - `specialty`: Especialidade
+  - `bio`: Biografia
+  - `email`: E-mail
+  - `instagram`: Instagram
+  - `website`: Website
+  - `profile_picture`: Nome do arquivo S3 (imagem de perfil)
+  - `cna_picture`: Nome do arquivo S3 (imagem CNA)
+  - `principal_lawyer_id`: ID do advogado principal (para suplementares)
+  - `folder_id`: ID da pasta
+  - `social_name`: Nome social
+  - `cna_link`: Link CNA
+  - `detail_url`: URL de detalhes
+  - `society_basic_details`: JSON com detalhes da sociedade
+
+  **Resposta de sucesso (201):**
+
+  ``` json
+  {
+    "message": "Lawyer created successfully",
+    "lawyer": {
+      "id": 1,
+      "full_name": "Maria Santos",
+      "oab_id": "SP_789012",
+      ...
+    }
+  }
+  ```
+
+  **Erros possíveis:**
+  - 400: Parâmetros ausentes ou inválidos
+  - 401: API key inválida
+  - 409: Advogado já existe (oab_id duplicado)
+  - 422: Erro de validação
+}

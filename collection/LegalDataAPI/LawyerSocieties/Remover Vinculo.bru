@@ -1,0 +1,52 @@
+meta {
+  name: Remover Vinculo
+  type: http
+  seq: 4
+}
+
+delete {
+  url: {{base_url}}/lawyer_societies/{{id}}
+  body: none
+  auth: none
+}
+
+headers {
+  X-API-KEY: {{api_key}}
+  Content-Type: application/json
+}
+
+vars:pre-request {
+  id: 1
+}
+
+settings {
+  encodeUrl: true
+}
+
+docs {
+  ### Remover Vínculo Advogado-Sociedade
+
+  Remove o vínculo entre um advogado e uma sociedade.
+
+  **Parâmetros de URL:**
+  - `id`: ID do vínculo (lawyer_society)
+
+  **Headers obrigatórios:**
+  - `X-API-KEY`: Chave de API válida
+
+  **Resposta de sucesso (200):**
+
+  ``` json
+  {
+    "message": "Vínculo removido com sucesso"
+  }
+  ```
+
+  **Notas:**
+  - A remoção do vínculo libera uma vaga na sociedade
+  - Esta operação é irreversível
+
+  **Erros possíveis:**
+  - 401: API key inválida
+  - 404: Vínculo não encontrado
+}
