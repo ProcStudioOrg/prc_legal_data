@@ -7,7 +7,7 @@ set -euo pipefail
 
 VPS_HOST="${DEPLOY_HOST:-brpl@168.231.90.14}"
 APP_NAME="legal_data_api"
-APP_DIR="/home/brpl/${APP_NAME}"
+APP_DIR="/home/brpl/code/prc_legal_data"
 BRANCH="${DEPLOY_BRANCH:-main}"
 
 echo "=== Deploying ${BRANCH} to ${VPS_HOST} ==="

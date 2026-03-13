@@ -6,7 +6,7 @@
 set -euo pipefail
 
 APP_NAME="legal_data_api"
-APP_DIR="/home/brpl/${APP_NAME}"
+APP_DIR="/home/brpl/code/prc_legal_data"
 RUBY_VERSION="3.4.7"
 DB_NAME="${APP_NAME}_development"
 DB_USER="${APP_NAME}"
@@ -57,6 +57,7 @@ fi
 
 echo "=== 5. Clone repository ==="
 if [ ! -d "${APP_DIR}" ]; then
+  mkdir -p /home/brpl/code
   git clone git@github.com:brpl20/prc_legal_data.git "${APP_DIR}"
 else
   echo "Repository already exists at ${APP_DIR}"
