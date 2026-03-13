@@ -19,13 +19,6 @@ Rails.application.routes.draw do
       # Rotas de relações advogado-sociedade
       resources :lawyer_societies, only: [:create, :show, :update, :destroy]
 
-      # Autenticação para obter API key
-      post 'auth/login', to: 'authentication#login'
     end
-  end
-
-  namespace :admin do
-    get 'dashboard', to: 'dashboard#index'
-    resources :api_keys
   end
 end

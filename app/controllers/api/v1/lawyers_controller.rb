@@ -2,11 +2,10 @@
 module Api
   module V1
     class LawyersController < ApplicationController
-      # --- Existing before_action/after_action filters ---
-      before_action :authenticate_with_api_key
-      before_action :set_request_start_time
+      include ApiAuthentication
+
+      before_action :authorize_write!, only: [ :create_lawyer, :update_lawyer, :update_crm ]
       before_action :set_lawyer, only: [ :_debug, :update_lawyer, :update_crm ]
-      after_action :log_api_request
 
       # --- Create lawyer action ---
       def create_lawyer
@@ -302,7 +301,7 @@ module Api
       end
 
       # --- Update CRM data action ---
-      # This endpoint allows updating/adding any fields to the crm_data JSON
+      # This endpoint allows updating/adding specific fields to the crm_data JSON
       # It merges new data with existing data, allowing partial updates
       def update_crm
         unless @lawyer
@@ -317,10 +316,7 @@ module Api
           mail_marketing_origin: []
         ).to_h
 
-        # Also allow any additional custom fields via a nested 'custom' or 'extra' param
-        extra_params = params[:extra].permit!.to_h if params[:extra].present?
-
-        if crm_params.empty? && extra_params.nil?
+        if crm_params.empty?
           render json: { error: "Nenhum parâmetro CRM fornecido" }, status: :bad_request
           return
         end
@@ -329,7 +325,6 @@ module Api
           # Merge with existing crm_data (deep merge to preserve nested structures)
           current_crm = @lawyer.crm_data || {}
           new_crm = current_crm.deep_merge(crm_params.compact)
-          new_crm = new_crm.deep_merge({ 'extra' => extra_params }) if extra_params.present?
 
           if @lawyer.update(crm_data: new_crm)
             render json: {
@@ -464,53 +459,6 @@ module Api
       def set_lawyer
         oab = params[:oab]
         @lawyer = Lawyer.find_by(oab_id: oab) if oab.present?
-      end
-
-      def set_request_start_time
-        @request_start_time = Time.now
-        # Store request_id in RequestStore for correlation
-        RequestStore.store[:request_id] = request.request_id || SecureRandom.uuid
-
-        # Set content type parsing strategy if not specified by client
-        if request.content_type.blank? && request.headers["Content-Type"].blank? && request.post?
-          request.headers["Content-Type"] = "application/json"
-        end
-      end
-
-      def authenticate_with_api_key
-        api_key = request.headers["X-API-KEY"]
-        @api_key = ApiKey.find_by(key: api_key, active: true)
-
-        unless @api_key
-          render json: {
-            error: "Invalid API Key",
-            request_id: RequestStore.store[:request_id]
-          }, status: :unauthorized
-          return
-        end
-
-        @current_user = @api_key.user
-      end
-
-      def log_api_request
-        country_code = Geocoder.search(request.ip).first&.country_code
-
-        ApiLog.create(
-          user_id: @current_user&.id,
-          api_key_id: @api_key&.id,
-          endpoint: request.path,
-          ip_address: request.ip,
-          request_method: request.method,
-          response_status: response.status,
-          request_size: request.content_length || 0,
-          response_time: (Time.now - @request_start_time),
-          country_code: country_code,
-          browser: request.user_agent,
-          requested_oab: params[:oab] || params[:state] # Log OAB ou Estado
-        )
-      rescue => e
-        # Use standard logger method without relying on push_tags
-        Rails.logger.error("Failed to log API request: #{e.message}")
       end
 
       # Strong parameters for lawyer updates

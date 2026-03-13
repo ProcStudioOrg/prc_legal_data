@@ -1,101 +1,91 @@
-# Backlog
+# Legal Data API
 
--> Use backlogmd
+> Use backlogmd for task management
 
-# Testing & Setup Commands
+## Setup
 
-Generate User with API Key:
+```bash
+bundle install
+bin/rails db:create db:migrate
+```
+
+### Create user and API keys
+
 ```bash
 bundle exec rake db:seed_user
 ```
 
-# Legal Data API Documentation
-- Check API File ---> TODO
+This creates an admin user with two API keys: one **admin** (full CRUD) and one **read-only** (GET only).
 
-## Authentication
+### API Key Management
 
-All API endpoints require authentication using an API key. The API key should be included in the request headers:
+```bash
+# List all active keys
+bundle exec rake api_keys:list
+
+# Create a read-only key
+bundle exec rake api_keys:create_read[user@example.com]
+
+# Create an admin key
+bundle exec rake api_keys:create_admin[user@example.com]
+
+# Rotate all keys for a user (deactivates old, creates new with same roles)
+bundle exec rake api_keys:rotate[user@example.com]
+
+# Rotate keys for all users
+bundle exec rake api_keys:rotate
+```
+
+## Authentication & Authorization
+
+All endpoints require an API key in the `X-API-KEY` header:
 
 ```
 X-API-KEY: your_api_key_here
 ```
+
+### API Key Roles
+
+| Role | Permissions | Use case |
+|------|-------------|----------|
+| `admin` | Full CRUD (GET, POST, PUT, PATCH, DELETE) | Scraping, data ingestion, management |
+| `read` | Read-only (GET) | Application frontend, public queries |
+
+A read-only key attempting a write operation receives `403 Forbidden`.
 
 ## Endpoints
 
 ### Lawyer Endpoints
 
 ```
-GET /api/v1/lawyer/:oab
-GET /api/v1/lawyer/:oab/debug
-GET /api/v1/lawyer/state/:state/last
-POST /api/v1/lawyer/create
-POST /api/v1/lawyer/update
+GET  /api/v1/lawyer/:oab              # Lookup by OAB ID (e.g. PR_54159)
+GET  /api/v1/lawyer/:oab/debug        # Extended debug info
+GET  /api/v1/lawyer/state/:state/last # Last registered lawyer by state
+POST /api/v1/lawyer/create            # Create lawyer (admin only)
+POST /api/v1/lawyer/:oab/update       # Update lawyer (admin only)
+POST /api/v1/lawyer/:oab/crm          # Update CRM data (admin only)
 ```
-
-- oab => Consultar um advogado, use o parâmetro: SIGLADOESTADO_NUMEROS (PR_54159)
-- oab/debug => Irá retornar alguns campos extras sobre o advogado
-- state/:state/last => Consulta o último advogado cadastrado por estado. Essa operação geralmente é um pouco demorada. O objetivo deste endpoint é automatização do scraping (todo mês novos advogados se formam e novas oab são criadas). Use o parâmetro: PR por exemplo
-- create => Criar advogado
-- update => Atualizar advogado
-
 
 ### Society Endpoints
 
 ```
-GET    /api/v1/lawyer_societies/:id
-GET    /api/v1/lawyer/state/:state/last
-POST   /api/v1/society/create
-POST   /api/v1/society/:inscricao/update
-DELETE *
+GET    /api/v1/society/:inscricao        # Lookup by inscricao
+POST   /api/v1/society/create            # Create society (admin only)
+POST   /api/v1/society/:inscricao/update # Update society (admin only)
+DELETE /api/v1/society/:inscricao        # Delete society (admin only)
 ```
 
-- society :id => Retorna uma sociedade com base na sua id
-- state/:state/last => Consulta a última sociedade cadastrado por estado. Essa operação geralmente é um pouco demorada. O objetivo deste endpoint é automatização do scraping (todo mês novas sociedades são criadas e alteradas). Use o parâmetro: PR por exemplo
-- create => Criar sociedade
-- update => Atualizar sociedade
-- delete => Falta rota para deletar uma sociedade. Diferente do advogado que quando é cancelado, removido ou morto terá um tratamento próprio, sociedades podem deixar de existir e serem removidas do banco de dados.
-- oab/debug => Não temos essa rota de debug porque todas as informações da sociedade já vem no request principal
+### Lawyer-Society Relationship Endpoints
 
-### Lawyer & Society Endpoints
 ```
-POST   /api/v1/lawyer_societies
-PATCH  /api/v1/lawyer_societies/:id
-DELETE /api/v1/lawyer_societies/:id
+GET    /api/v1/lawyer_societies/:id   # Show relationship
+POST   /api/v1/lawyer_societies       # Create relationship (admin only)
+PATCH  /api/v1/lawyer_societies/:id   # Update relationship (admin only)
+DELETE /api/v1/lawyer_societies/:id   # Delete relationship (admin only)
 ```
 
-- lawyer_societies => São os métodos para atualizar o relacionamento entre sociedade e advogados
+## Security
 
-#### Atualizar Relacionamento
-{
-  "lawyer_id": 456,
-  "society_id": 123,
-  "partnership_type": "Sócio",
-  "cna_link": "https://example.com/cna/doc123"
-}
-```
-
-**Example Response:**
-```json
-{
-  "message": "Relação entre advogado e sociedade criada com sucesso",
-  "lawyer_society": {
-    "id": 789,
-    "lawyer_id": 456,
-    "society_id": 123,
-    "partnership_type": "Sócio",
-    "cna_link": "https://example.com/cna/doc123",
-    "created_at": "2023-06-01T14:23:45.678Z",
-    "updated_at": "2023-06-01T14:23:45.678Z"
-  },
-  "society": {
-    "id": 123,
-    "name": "Smith & Associates",
-    "inscricao": "12345"
-  },
-  "lawyer": {
-    "id": 456,
-    "oab_id": "SP_654321",
-    "full_name": "John Doe"
-  }
-}
-```
+- **Authentication**: API key via `X-API-KEY` header
+- **Authorization**: Role-based (admin/read) enforced at controller level
+- **Rate limiting, IP blocking, CORS, SSL, security headers**: Handled by NGINX

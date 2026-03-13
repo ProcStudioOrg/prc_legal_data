@@ -2,11 +2,10 @@
 module Api
   module V1
     class LawyerSocietiesController < ApplicationController
-      # --- Existing before_action/after_action filters ---
-      before_action :authenticate_with_api_key
-      before_action :set_request_start_time
+      include ApiAuthentication
+
+      before_action :authorize_write!, only: [ :create, :update, :destroy ]
       before_action :set_lawyer_society, only: [:show, :update, :destroy]
-      after_action :log_api_request
 
       # --- Create lawyer-society relationship action ---
       def create
@@ -51,9 +50,6 @@ module Api
 
         begin
           if @lawyer_society.save
-            # 6. Update related records if needed
-            # Note: we don't update has_society or society_id as they don't exist in the schema
-
             render json: {
               message: "Relação entre advogado e sociedade criada com sucesso",
               lawyer_society: @lawyer_society.as_json,
@@ -125,13 +121,8 @@ module Api
           return
         end
 
-        lawyer_id = @lawyer_society.lawyer_id
-        lawyer = Lawyer.find_by(id: lawyer_id)
-
         begin
           @lawyer_society.destroy
-
-          # No need to update nonexistent fields on the lawyer model
 
           render json: {
             message: "Relação entre advogado e sociedade removida com sucesso"
@@ -148,42 +139,6 @@ module Api
       def set_lawyer_society
         id = params[:id]
         @lawyer_society = LawyerSociety.find_by(id: id) if id.present?
-      end
-
-      def set_request_start_time
-        @request_start_time = Time.now
-      end
-
-      def authenticate_with_api_key
-        api_key = request.headers["X-API-KEY"]
-        @api_key = ApiKey.find_by(key: api_key, active: true)
-
-        unless @api_key
-          render json: { error: "Invalid API Key" }, status: :unauthorized
-          return
-        end
-
-        @current_user = @api_key.user
-      end
-
-      def log_api_request
-        country_code = Geocoder.search(request.ip).first&.country_code
-
-        ApiLog.create(
-          user_id: @current_user&.id,
-          api_key_id: @api_key&.id,
-          endpoint: request.path,
-          ip_address: request.ip,
-          request_method: request.method,
-          response_status: response.status,
-          request_size: request.content_length || 0,
-          response_time: (Time.now - @request_start_time),
-          country_code: country_code,
-          browser: request.user_agent,
-          requested_oab: nil
-        )
-      rescue => e
-        Rails.logger.error("Failed to log API request: #{e.message}")
       end
 
       # Strong parameters for lawyer-society relationship
