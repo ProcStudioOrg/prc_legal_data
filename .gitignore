@@ -73,3 +73,7 @@ HTTPS_SETUP_STATUS.md
 # Configuration files
 nginx_server_config.conf
 legal_data_api.service
+
+# SQL dumps
+*.sql.gz
+*.sql

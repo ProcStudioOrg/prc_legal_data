@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_01_17_025441) do
+ActiveRecord::Schema[8.1].define(version: 2026_03_13_122511) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -38,21 +38,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_17_025441) do
     t.datetime "updated_at", null: false
     t.integer "user_id"
     t.index ["requested_oab"], name: "index_api_logs_on_requested_oab"
-  end
-
-  create_table "blocked_countries", force: :cascade do |t|
-    t.string "country_code"
-    t.datetime "created_at", null: false
-    t.string "reason"
-    t.datetime "updated_at", null: false
-  end
-
-  create_table "blocked_ips", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.datetime "expires_at"
-    t.string "ip_address"
-    t.string "reason"
-    t.datetime "updated_at", null: false
   end
 
   create_table "lawyer_societies", force: :cascade do |t|
@@ -106,14 +91,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_01_17_025441) do
     t.index ["has_society"], name: "index_lawyers_on_has_society"
     t.index ["oab_id"], name: "index_lawyers_on_oab_id", unique: true
     t.index ["principal_lawyer_id"], name: "index_lawyers_on_principal_lawyer_id"
-  end
-
-  create_table "security_alerts", force: :cascade do |t|
-    t.datetime "created_at", null: false
-    t.text "message"
-    t.boolean "resolved"
-    t.string "severity"
-    t.datetime "updated_at", null: false
   end
 
   create_table "societies", force: :cascade do |t|
