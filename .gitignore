@@ -46,7 +46,7 @@ config/.env
 .aider*
 society_processing.log
 
-# Setup and deployment scripts
+# Legacy scripts (replaced by infra/)
 setup_secure_server.sh
 setup_secure_without_domain.sh
 fix_nginx_and_setup.sh
@@ -55,8 +55,6 @@ deploy_production.sh
 add_ip_to_server_name.sh
 enable_ip_access.sh
 fix_proxy_pass.sh
-
-# Nginx configuration
 nginx_ip_access.conf
 
 # Vendor bundle
@@ -70,7 +68,7 @@ https_api_examples_ip_based.md
 manual_secure_setup.md
 HTTPS_SETUP_STATUS.md
 
-# Configuration files
+# Legacy config files (replaced by infra/)
 nginx_server_config.conf
 legal_data_api.service
 
