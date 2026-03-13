@@ -1,0 +1,26 @@
+[Unit]
+Description=Legal Data API (Puma)
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=brpl
+Group=brpl
+WorkingDirectory=/home/brpl/code/prc_legal_data
+EnvironmentFile=/home/brpl/code/prc_legal_data/.env
+
+ExecStart=/home/brpl/.rbenv/shims/bundle exec puma -C config/puma.rb
+ExecReload=/bin/kill -SIGUSR1 $MAINPID
+Restart=always
+RestartSec=5
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/home/brpl/code/prc_legal_data/log /home/brpl/code/prc_legal_data/tmp /home/brpl/code/prc_legal_data/storage
+
+SyslogIdentifier=legal_data_api
+
+[Install]
+WantedBy=multi-user.target

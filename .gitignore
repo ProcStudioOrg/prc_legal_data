@@ -69,8 +69,8 @@ manual_secure_setup.md
 HTTPS_SETUP_STATUS.md
 
 # Legacy config files (replaced by infra/)
-nginx_server_config.conf
-legal_data_api.service
+/nginx_server_config.conf
+/legal_data_api.service
 
 # SQL dumps
 *.sql.gz
