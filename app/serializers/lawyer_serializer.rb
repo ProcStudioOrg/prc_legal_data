@@ -100,12 +100,10 @@ class LawyerSerializer
     { crm_data: @lawyer.crm_data || {} }
   end
 
-  def format_image_url(image_name, type)
+  def format_image_url(image_name, _type = nil)
     return nil unless image_name.present?
 
-    s3_config = Rails.application.config.s3
-    bucket = type == :profile ? s3_config[:profile_pictures_bucket] : s3_config[:cna_pictures_bucket]
-
+    bucket = Rails.application.config.s3[:profile_pictures_bucket]
     "https://#{bucket}.s3.amazonaws.com/#{image_name}"
   end
 end
