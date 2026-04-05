@@ -16,6 +16,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             set -euo pipefail
+            source ~/.zshrc 2>/dev/null || true
             export PATH="$HOME/.rbenv/bin:$HOME/.rbenv/shims:$PATH"
             cd /home/brpl/code/prc_legal_data
 
