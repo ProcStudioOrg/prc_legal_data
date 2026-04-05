@@ -172,7 +172,13 @@ module Api
          }, status: :internal_server_error
       end
 
-      # --- Buscar última OAB por estado (cached, background-computed) ---
+      VALID_STATES = %w[
+        AC AL AP AM BA CE DF ES GO MA
+        MT MS MG PA PB PR PE PI RJ RN
+        RS RO RR SC SP SE TO
+      ].freeze
+
+      # --- Buscar última OAB por estado (SQL optimized + cached) ---
       def last_oab_by_state
         state = params[:state]&.upcase
 
@@ -181,31 +187,39 @@ module Api
           return
         end
 
-        unless ComputeLastOabByStateJob::VALID_STATES.include?(state)
+        unless VALID_STATES.include?(state)
           render json: {
-            error: "Estado inválido. Estados válidos: #{ComputeLastOabByStateJob::VALID_STATES.join(', ')}"
+            error: "Estado inválido. Estados válidos: #{VALID_STATES.join(', ')}"
           }, status: :bad_request
           return
         end
 
-        cache_key = "last_oab_by_state:#{state}"
-        cached = Rails.cache.read(cache_key)
+        result = Rails.cache.fetch("last_oab_by_state:#{state}", expires_in: 6.hours) do
+          total = Lawyer.where("oab_id LIKE ?", "#{state}_%").count
 
-        if cached
-          # Return cached data immediately; refresh in background if older than 1 hour
-          if cached[:computed_at] && Time.parse(cached[:computed_at]) < 1.hour.ago
-            ComputeLastOabByStateJob.perform_later(state)
+          if total == 0
+            { state: state, message: "Nenhum advogado encontrado para o estado #{state}", last_oab: nil, total_lawyers: 0 }
+          else
+            lawyer = Lawyer
+              .where("oab_id LIKE ?", "#{state}_%")
+              .order(Arel.sql("CAST(SPLIT_PART(oab_id, '_', 2) AS INTEGER) DESC"))
+              .limit(1)
+              .first
+
+            {
+              state: state,
+              last_oab: lawyer.oab_id,
+              oab_number: lawyer.oab_number,
+              lawyer_name: lawyer.full_name,
+              city: lawyer.city,
+              situation: lawyer.situation,
+              total_lawyers: total,
+              updated_at: lawyer.updated_at
+            }
           end
-          render json: cached.merge(source: "cache"), status: :ok
-        else
-          # No cache yet — enqueue job and return accepted
-          ComputeLastOabByStateJob.perform_later(state)
-          render json: {
-            state: state,
-            message: "Computação iniciada em background. Tente novamente em alguns segundos.",
-            source: "pending"
-          }, status: :accepted
         end
+
+        render json: result, status: :ok
       end
 
       # --- Update lawyer action ---
