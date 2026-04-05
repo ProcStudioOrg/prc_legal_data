@@ -172,86 +172,39 @@ module Api
          }, status: :internal_server_error
       end
 
-      # --- NOVO MÉTODO: Buscar última OAB por estado ---
+      # --- Buscar última OAB por estado (cached, background-computed) ---
       def last_oab_by_state
         state = params[:state]&.upcase
 
-        # 1. Validar presença e formato do estado
         unless state.present?
           render json: { error: "Estado obrigatório" }, status: :bad_request
           return
         end
 
-        # 2. Validar se o estado está na lista de estados válidos
-        valid_states = [
-          'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
-          'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN',
-          'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
-        ]
-
-        unless valid_states.include?(state)
+        unless ComputeLastOabByStateJob::VALID_STATES.include?(state)
           render json: {
-            error: "Estado inválido. Estados válidos: #{valid_states.join(', ')}"
+            error: "Estado inválido. Estados válidos: #{ComputeLastOabByStateJob::VALID_STATES.join(', ')}"
           }, status: :bad_request
           return
         end
 
-        begin
-          # 3. Buscar todos os advogados do estado com base no oab_id
-          # O oab_id tem o formato STATE_NUMBER, exemplo: MG_170222
-          lawyers_in_state = Lawyer.where("oab_id LIKE ?", "#{state}_%")
+        cache_key = "last_oab_by_state:#{state}"
+        cached = Rails.cache.read(cache_key)
 
-          # 4. Verificar se existem registros para o estado
-          if lawyers_in_state.empty?
-            render json: {
-              state: state,
-              message: "Nenhum advogado encontrado para o estado #{state}",
-              last_oab: nil,
-              total_lawyers: 0
-            }, status: :ok
-            return
+        if cached
+          # Return cached data immediately; refresh in background if older than 1 hour
+          if cached[:computed_at] && Time.parse(cached[:computed_at]) < 1.hour.ago
+            ComputeLastOabByStateJob.perform_later(state)
           end
-
-          # 5. Extrair os números do OAB a partir do oab_id (formato STATE_NUMBER)
-          # e encontrar o maior número
-          max_oab = lawyers_in_state.map do |lawyer|
-            # Extrai o número do OAB do oab_id
-            oab_parts = lawyer.oab_id.split('_')
-            if oab_parts.length == 2
-              # Converter para inteiro para comparação numérica correta
-              [lawyer, oab_parts[1].to_i]
-            else
-              [lawyer, 0]
-            end
-          end.max_by { |lawyer, number| number }
-
-          if max_oab && max_oab[0]
-            lawyer_with_max_oab = max_oab[0]
-
-            # 6. Preparar resposta com informações do advogado
-            response_data = {
-              state: state,
-              last_oab: lawyer_with_max_oab.oab_id,
-              oab_number: lawyer_with_max_oab.oab_number,
-              lawyer_name: lawyer_with_max_oab.full_name,
-              city: lawyer_with_max_oab.city,
-              situation: lawyer_with_max_oab.situation,
-              total_lawyers: lawyers_in_state.count,
-              updated_at: lawyer_with_max_oab.updated_at
-            }
-
-            render json: response_data, status: :ok
-          else
-            render json: {
-              error: "Erro ao encontrar advogado com maior número OAB"
-            }, status: :internal_server_error
-          end
-
-        rescue => e
-          Rails.logger.error("Error in last_oab_by_state for state #{state}: #{e.message}\n#{e.backtrace.join("\n")}")
+          render json: cached.merge(source: "cache"), status: :ok
+        else
+          # No cache yet — enqueue job and return accepted
+          ComputeLastOabByStateJob.perform_later(state)
           render json: {
-            error: "Erro interno ao buscar última OAB do estado"
-          }, status: :internal_server_error
+            state: state,
+            message: "Computação iniciada em background. Tente novamente em alguns segundos.",
+            source: "pending"
+          }, status: :accepted
         end
       end
 
