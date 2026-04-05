@@ -34,10 +34,4 @@ jobs:
             sudo systemctl restart legal_data_api
 
             sleep 10
-            if sudo systemctl is-active --quiet legal_data_api; then
-              echo "Deploy successful — legal_data_api is running"
-            else
-              echo "ERROR: legal_data_api failed to start"
-              sudo journalctl -u legal_data_api --no-pager -n 20
-              exit 1
-            fi
+            sudo systemctl is-active legal_data_api && echo "Deploy successful — legal_data_api is running"
