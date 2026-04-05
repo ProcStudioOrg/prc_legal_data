@@ -38,8 +38,8 @@ Rails.application.configure do
   # Don't log any deprecations.
   config.active_support.report_deprecations = false
 
-  # Use database-backed cache so cached results survive server restarts.
-  config.cache_store = :solid_cache_store
+  # In-memory cache (no extra DB setup needed). Cache clears on restart but that's fine.
+  config.cache_store = :memory_store
 
   # Replace the default in-process and non-durable queuing backend for Active Job.
   config.active_job.queue_adapter = :solid_queue
