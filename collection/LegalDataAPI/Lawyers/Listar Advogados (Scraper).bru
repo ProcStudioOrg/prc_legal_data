@@ -1,0 +1,81 @@
+meta {
+  name: Listar Advogados (Scraper)
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{base_url}}/lawyers?state={{state}}&limit={{limit}}
+  body: none
+  auth: none
+}
+
+headers {
+  X-API-KEY: {{api_key}}
+  Content-Type: application/json
+}
+
+vars:pre-request {
+  state: PR
+  limit: 20
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  ### Listar Advogados para Scraper (Batch)
+
+  Retorna advogados em lote, ordenados por número OAB decrescente (mais novos primeiro).
+  Utilizado pelo scraper AI para processar advogados em batch.
+
+  **Query Parameters:**
+  - `state` (obrigatório): Sigla do estado (ex: PR, SP, MG)
+  - `from_oab` (opcional): Cursor — retorna advogados com OAB < este número
+  - `limit` (opcional, default 50, max 100): Quantidade de advogados por página
+  - `scraped` (opcional): Filtrar por status de scraping. `false` = apenas não-scraped
+
+  **Headers obrigatórios:**
+  - `X-API-KEY`: Chave de API válida
+
+  **Resposta de sucesso (200):**
+
+  ``` json
+  {
+    "lawyers": [
+      {
+        "id": 1,
+        "full_name": "BRUNO PELLIZZETTI",
+        "oab_id": "PR_30145",
+        "situation": "REGULAR",
+        "supplementary_oabs": ["AC_3901"],
+        "societies": [
+          {
+            "name": "PELLIZZETTI E WALBER",
+            "members": [
+              {"name": "JOAO SILVA", "oab_id": "PR_59010"}
+            ]
+          }
+        ],
+        "crm_data": {}
+      }
+    ],
+    "meta": {
+      "returned": 20,
+      "state": "PR",
+      "from_oab": null,
+      "next_from_oab": "130960"
+    }
+  }
+  ```
+
+  **Paginação por cursor:**
+  Use `next_from_oab` do response como `from_oab` do próximo request.
+  Quando `next_from_oab` é null, é a última página.
+
+  **Erros possíveis:**
+  - 400: Estado ausente ou inválido
+  - 401: API key inválida ou ausente
+}
