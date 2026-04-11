@@ -136,6 +136,68 @@ Add `collection/LegalDataAPI/Lawyers/Listar Advogados (Scraper).bru` with:
 
 ---
 
+## Verification Test Cases
+
+After implementation, run these requests against real data to verify correctness.
+
+### Test 1: Small society with members listed (≤6)
+
+**Request:** `GET /api/v1/lawyers?state=MG&from_oab=183894&limit=1`
+
+**Expect lawyer:** `MG_183893` — ROZEANE MARTINS MOMOSE
+
+**Verify:**
+- Society `SOARES DONATO ADVOGADOS ASSOCIADOS` (id: 337562) appears with individual members listed
+- Members should include at least: `MG_62039` (CLAUDIO SOARES DONATO), `MG_65030` (ANA PAULA BATISTA)
+- No `enterprise: true` flag (society has ≤6 members)
+
+### Test 2: Large society with enterprise flag (>6)
+
+**Request:** `GET /api/v1/lawyers?state=MG&from_oab=198237&limit=1`
+
+**Expect lawyer:** `MG_198236` — GABRIELA LIMA MOREIRA REIS
+
+**Verify:**
+- Society `ANANIAS JUNQUEIRA FERRAZ E ADVOGADOS ASSOCIADOS` (id: 337563, 136 members) appears with `enterprise: true` and `member_count: 136`
+- No individual members listed
+
+### Test 3: Supplementary OABs
+
+**Request:** `GET /api/v1/lawyers?state=PR&from_oab=72714&limit=1`
+
+**Expect lawyer:** `PR_72713` — ANA PAULA DE LIMA
+
+**Verify:**
+- `supplementary_oabs` includes principal `MT_29604` (she is supplementary of MT_29604)
+- Society `ANA P. DE LIMA SOCIEDADE INDIVIDUAL DE ADVOCACIA` listed
+
+### Test 4: Massive society — URBANO VITALINO (466 members)
+
+Pick any PE lawyer who is a member of society 350798.
+
+**Verify:**
+- Society appears as `enterprise: true`, `member_count: 466`
+- Response stays compact despite huge society
+
+### Test 5: Cursor pagination
+
+**Request 1:** `GET /api/v1/lawyers?state=PR&limit=3`
+**Request 2:** `GET /api/v1/lawyers?state=PR&limit=3&from_oab={next_from_oab from request 1}`
+
+**Verify:**
+- Request 2 returns lawyers with oab_number strictly less than `next_from_oab`
+- No overlap between the two batches
+- All returned lawyers have `situation ILIKE '%regular%'` and `is_procstudio` is false/null
+
+### Test 6: Scraped filter
+
+**Request:** `GET /api/v1/lawyers?state=PR&limit=5&scraped=false`
+
+**Verify:**
+- Only returns lawyers where `crm_data->>'scraped'` is NULL or not `'true'`
+
+---
+
 ## What This Does NOT Include
 
 - `similar_names` field — deferred to face-matcher-on-create task
