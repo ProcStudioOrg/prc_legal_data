@@ -30,7 +30,8 @@ class ScraperLawyerSerializer
   private
 
   def serialize_societies
-    @lawyer.lawyer_societies.includes(society: { lawyer_societies: :lawyer }).map do |ls|
+    # Relies on controller eager-loading: lawyer_societies: { society: { lawyer_societies: :lawyer } }
+    @lawyer.lawyer_societies.map do |ls|
       society = ls.society
       member_count = society.lawyer_societies.size
 

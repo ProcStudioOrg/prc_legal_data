@@ -30,6 +30,10 @@ module Api
           .where("is_procstudio IS NULL OR is_procstudio = false")
 
         if from_oab.present?
+          unless from_oab.match?(/\A\d+\z/)
+            render json: { error: "from_oab deve ser numérico" }, status: :bad_request
+            return
+          end
           lawyers = lawyers.where("CAST(oab_number AS INTEGER) < ?", from_oab.to_i)
         end
 
