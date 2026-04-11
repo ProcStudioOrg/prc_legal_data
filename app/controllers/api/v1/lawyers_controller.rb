@@ -7,6 +7,69 @@ module Api
       before_action :authorize_write!, only: [ :create_lawyer, :update_lawyer, :update_crm ]
       before_action :set_lawyer, only: [ :_debug, :update_lawyer, :update_crm ]
 
+      # --- Batch fetch for scraper ---
+      def index
+        state = params[:state]&.upcase
+
+        unless state.present?
+          render json: { error: "Estado obrigatório" }, status: :bad_request
+          return
+        end
+
+        unless VALID_STATES.include?(state)
+          render json: { error: "Estado inválido. Estados válidos: #{VALID_STATES.join(', ')}" }, status: :bad_request
+          return
+        end
+
+        limit = [[params.fetch(:limit, 50).to_i, 1].max, 100].min
+        from_oab = params[:from_oab]
+
+        lawyers = Lawyer
+          .where(state: state)
+          .where("situation ILIKE ?", "%regular%")
+          .where("is_procstudio IS NULL OR is_procstudio = false")
+
+        if from_oab.present?
+          lawyers = lawyers.where("CAST(oab_number AS INTEGER) < ?", from_oab.to_i)
+        end
+
+        if params[:scraped] == "false"
+          lawyers = lawyers.where("crm_data->>'scraped' IS NULL OR crm_data->>'scraped' != 'true'")
+        end
+
+        # Fetch limit+1 to determine if there's a next page without an extra COUNT query
+        lawyers = lawyers
+          .order(Arel.sql("CAST(oab_number AS INTEGER) DESC"))
+          .limit(limit + 1)
+          .includes(:supplementary_lawyers, :principal_lawyer, lawyer_societies: { society: { lawyer_societies: :lawyer } })
+
+        all_records = lawyers.to_a
+        has_more = all_records.length > limit
+        page_records = has_more ? all_records.first(limit) : all_records
+
+        serialized = page_records.map { |l| ScraperLawyerSerializer.new(l).as_json }
+
+        last_oab = serialized.any? ? serialized.last[:oab_number] : nil
+        next_from_oab = has_more ? last_oab : nil
+
+        render json: {
+          lawyers: serialized,
+          meta: {
+            returned: serialized.length,
+            state: state,
+            from_oab: from_oab,
+            next_from_oab: next_from_oab
+          }
+        }, status: :ok
+      rescue => e
+        Rails.logger.error("Error in lawyers#index: #{e.message}\n#{e.backtrace&.first(5)&.join("\n")}")
+        render json: {
+          error: "Erro interno ao listar advogados",
+          error_type: e.class.name,
+          request_id: request.request_id
+        }, status: :internal_server_error
+      end
+
       # --- Create lawyer action ---
       def create_lawyer
         begin

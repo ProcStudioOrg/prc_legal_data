@@ -3,6 +3,8 @@ Rails.application.routes.draw do
   namespace :api do
     namespace :v1 do
       # Rotas de advogados
+      # Rota batch para scraper
+      get 'lawyers', to: 'lawyers#index'
       get 'lawyer/:oab', to: 'lawyers#show_by_oab'
       post 'lawyer/create', to: 'lawyers#create_lawyer'
       post 'lawyer/:oab/update', to: 'lawyers#update_lawyer'
