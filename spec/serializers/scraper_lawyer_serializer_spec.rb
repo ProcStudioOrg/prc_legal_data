@@ -104,6 +104,32 @@ RSpec.describe ScraperLawyerSerializer do
       expect(soc[:members]).to be_nil
     end
 
+    it 'lists members at exact threshold boundary (6 members)' do
+      society = create(:society, name: "BOUNDARY SOC", number_of_partners: 6)
+      create(:lawyer_society, lawyer: lawyer, society: society)
+      5.times { create(:lawyer_society, lawyer: create(:lawyer), society: society) }
+
+      result = described_class.new(lawyer.reload).as_json
+      soc = result[:societies].first
+
+      expect(soc[:members]).to be_an(Array)
+      expect(soc[:members].length).to eq(6)
+      expect(soc[:enterprise]).to be_nil
+    end
+
+    it 'returns enterprise flag at threshold + 1 (7 members)' do
+      society = create(:society, name: "JUST OVER SOC", number_of_partners: 7)
+      create(:lawyer_society, lawyer: lawyer, society: society)
+      6.times { create(:lawyer_society, lawyer: create(:lawyer), society: society) }
+
+      result = described_class.new(lawyer.reload).as_json
+      soc = result[:societies].first
+
+      expect(soc[:enterprise]).to eq(true)
+      expect(soc[:member_count]).to eq(7)
+      expect(soc[:members]).to be_nil
+    end
+
     it 'handles lawyer with no societies' do
       result = described_class.new(lawyer).as_json
       expect(result[:societies]).to eq([])
