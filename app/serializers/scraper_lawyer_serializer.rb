@@ -22,12 +22,28 @@ class ScraperLawyerSerializer
       website: @lawyer.website,
       has_society: @lawyer.has_society,
       supplementary_oabs: supplementary_oabs,
-      societies: [],
+      societies: serialize_societies,
       crm_data: @lawyer.crm_data || {}
     }
   end
 
   private
+
+  def serialize_societies
+    @lawyer.lawyer_societies.includes(society: { lawyer_societies: :lawyer }).map do |ls|
+      society = ls.society
+      member_count = society.lawyer_societies.size
+
+      if member_count > ENTERPRISE_THRESHOLD
+        { name: society.name, enterprise: true, member_count: member_count }
+      else
+        members = society.lawyer_societies.map do |member_ls|
+          { name: member_ls.lawyer.full_name, oab_id: member_ls.lawyer.oab_id }
+        end
+        { name: society.name, members: members }
+      end
+    end
+  end
 
   def supplementary_oabs
     if @lawyer.principal_lawyer_id.present?

@@ -68,4 +68,68 @@ RSpec.describe ScraperLawyerSerializer do
       expect(result[:supplementary_oabs]).to match_array(["MT_11111", "SP_33333"])
     end
   end
+
+  describe '#as_json societies' do
+    it 'lists members for small society (<=6 members)' do
+      society = create(:society, name: "SMALL ADVOCACIA", number_of_partners: 6)
+      member1 = create(:lawyer, full_name: "JOAO SILVA", oab_id: "PR_11111")
+      member2 = create(:lawyer, full_name: "MARIA SOUZA", oab_id: "PR_22222")
+      create(:lawyer_society, lawyer: lawyer, society: society)
+      create(:lawyer_society, lawyer: member1, society: society)
+      create(:lawyer_society, lawyer: member2, society: society)
+
+      result = described_class.new(lawyer.reload).as_json
+
+      expect(result[:societies].length).to eq(1)
+      soc = result[:societies].first
+      expect(soc[:name]).to eq("SMALL ADVOCACIA")
+      expect(soc[:enterprise]).to be_nil
+      expect(soc[:members]).to match_array([
+        { name: "JOAO SILVA", oab_id: "PR_11111" },
+        { name: "MARIA SOUZA", oab_id: "PR_22222" },
+        { name: "MARIA SILVA", oab_id: "PR_50000" }
+      ])
+    end
+
+    it 'returns enterprise flag for large society (>6 members)' do
+      society = create(:society, :with_lawyers, name: "MEGA ADVOCACIA", lawyers_count: 8, number_of_partners: 9)
+      create(:lawyer_society, lawyer: lawyer, society: society)
+
+      result = described_class.new(lawyer.reload).as_json
+
+      soc = result[:societies].first
+      expect(soc[:name]).to eq("MEGA ADVOCACIA")
+      expect(soc[:enterprise]).to eq(true)
+      expect(soc[:member_count]).to eq(9) # 8 from trait + the lawyer itself
+      expect(soc[:members]).to be_nil
+    end
+
+    it 'handles lawyer with no societies' do
+      result = described_class.new(lawyer).as_json
+      expect(result[:societies]).to eq([])
+    end
+
+    it 'handles lawyer with multiple societies of different sizes' do
+      small_soc = create(:society, name: "SMALL SOC", number_of_partners: 6)
+      create(:lawyer_society, lawyer: lawyer, society: small_soc)
+      create(:lawyer_society, lawyer: create(:lawyer), society: small_soc)
+
+      big_soc = create(:society, :with_lawyers, name: "BIG SOC", lawyers_count: 7, number_of_partners: 8)
+      create(:lawyer_society, lawyer: lawyer, society: big_soc)
+
+      result = described_class.new(lawyer.reload).as_json
+
+      names = result[:societies].map { |s| s[:name] }
+      expect(names).to match_array(["SMALL SOC", "BIG SOC"])
+
+      small = result[:societies].find { |s| s[:name] == "SMALL SOC" }
+      expect(small[:members]).to be_an(Array)
+      expect(small[:enterprise]).to be_nil
+
+      big = result[:societies].find { |s| s[:name] == "BIG SOC" }
+      expect(big[:enterprise]).to eq(true)
+      expect(big[:member_count]).to eq(8) # 7 + lawyer
+      expect(big[:members]).to be_nil
+    end
+  end
 end
