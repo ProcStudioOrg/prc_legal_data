@@ -31,11 +31,12 @@ class ScraperLawyerSerializer
 
   def supplementary_oabs
     if @lawyer.principal_lawyer_id.present?
+      # Use in-memory filtering to cooperate with eager loading
       principal = @lawyer.principal_lawyer
-      siblings = principal.supplementary_lawyers.where.not(id: @lawyer.id)
-      [principal.oab_id] + siblings.pluck(:oab_id)
+      siblings = principal.supplementary_lawyers.reject { |s| s.id == @lawyer.id }
+      [principal.oab_id] + siblings.map(&:oab_id)
     else
-      @lawyer.supplementary_lawyers.pluck(:oab_id)
+      @lawyer.supplementary_lawyers.map(&:oab_id)
     end
   end
 end
