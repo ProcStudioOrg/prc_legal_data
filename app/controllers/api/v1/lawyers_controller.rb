@@ -5,7 +5,7 @@ module Api
       include ApiAuthentication
 
       before_action :authorize_write!, only: [ :create_lawyer, :update_lawyer, :update_crm ]
-      before_action :set_lawyer, only: [ :_debug, :update_lawyer, :update_crm ]
+      before_action :set_lawyer, only: [ :_debug, :update_lawyer, :update_crm, :show_crm ]
 
       # --- Batch fetch for scraper ---
       def index
@@ -237,6 +237,45 @@ module Api
            details: error_details,
            request_id: request.request_id
          }, status: :internal_server_error
+      end
+
+      # --- Show CRM data for a single lawyer ---
+      def show_crm
+        unless @lawyer
+          render json: { error: "Advogado Não Encontrado - Verifique o OAB ID" }, status: :not_found
+          return
+        end
+
+        # Resolve principal: walk to principal if @lawyer is supplementary
+        principal_lawyer = @lawyer.principal_lawyer_id.present? ? @lawyer.principal_lawyer : @lawyer
+
+        unless principal_lawyer
+          Rails.logger.error("Data Integrity: supplementary lawyer #{@lawyer.id} has principal_lawyer_id #{@lawyer.principal_lawyer_id} but principal not found")
+          render json: { error: "Erro interno: Registro principal associado não encontrado.", request_id: request.request_id }, status: :internal_server_error
+          return
+        end
+
+        status_check = verify_lawyer_status(principal_lawyer)
+        unless status_check[:valid]
+          render json: { error: "Status Inválido (Principal): #{status_check[:message]}" }, status: :unprocessable_entity
+          return
+        end
+
+        render json: { principal: LawyerCrmSerializer.new(principal_lawyer).as_json }, status: :ok
+      rescue => e
+        Rails.logger.error("Error in show_crm for OAB #{params[:oab]}: #{e.message}\n#{e.backtrace&.first(5)&.join("\n")}")
+        error_details = Rails.env.production? ? nil : { message: e.message, backtrace: e.backtrace&.first(5) }
+        render json: {
+          error: "Erro interno ao buscar advogado",
+          error_type: e.class.name,
+          details: error_details,
+          request_id: request.request_id
+        }, status: :internal_server_error
+      end
+
+      # --- List lawyers with CRM data (stub) ---
+      def crm_index
+        render json: { lawyers: [], meta: { returned: 0, next_from_oab: nil, filters_applied: {} } }, status: :ok
       end
 
       VALID_STATES = %w[
