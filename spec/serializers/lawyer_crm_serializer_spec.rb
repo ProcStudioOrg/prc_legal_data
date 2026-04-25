@@ -53,12 +53,10 @@ RSpec.describe LawyerCrmSerializer do
       expect(result[:crm_data]).to eq({})
     end
 
-    it 'serializer guards against nil crm_data in memory' do
-      lawyer_in_memory = build(:lawyer, oab_id: "PR_88888", crm_data: nil)
-      lawyer_in_memory.instance_variable_set(:@crm_data, nil)
-      allow(lawyer_in_memory).to receive(:crm_data).and_return(nil)
-      result = described_class.new(lawyer_in_memory).as_json
-      expect(result).to have_key(:crm_data)
+    it 'guards against nil crm_data on an in-memory lawyer' do
+      lawyer = build(:lawyer, oab_id: "PR_99001")
+      lawyer.crm_data = nil   # explicit override of the schema default
+      result = described_class.new(lawyer).as_json
       expect(result[:crm_data]).to eq({})
     end
 

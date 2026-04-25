@@ -1,7 +1,4 @@
 class LawyerCrmSerializer
-  PARTNER_LIMIT = 6
-
-  ALWAYS_EMIT_FIELDS = %i[crm_data supplementaries].freeze
   CONDITIONAL_FIELDS = %i[
     full_name oab_id state city situation profession address zip_code
     phone_number_1 phone_number_2
