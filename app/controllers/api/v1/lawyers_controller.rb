@@ -301,6 +301,22 @@ module Api
 
         lawyers = lawyers.where(state: state) if state.present?
 
+        if params[:scraped] == "true"
+          lawyers = lawyers.where("crm_data->'scraper'->>'scraped' = 'true'")
+        end
+
+        if params[:stage].present?
+          lawyers = lawyers.where("crm_data->'outreach'->>'stage' = ?", params[:stage])
+        end
+
+        if params[:has_instagram] == "true"
+          lawyers = lawyers.where("instagram IS NOT NULL AND instagram != ''")
+        end
+
+        if params[:has_website] == "true"
+          lawyers = lawyers.where("website IS NOT NULL AND website != ''")
+        end
+
         lawyers = lawyers.order(oab_id: :desc).limit(limit + 1)
 
         records = lawyers.to_a

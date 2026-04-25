@@ -86,4 +86,78 @@ RSpec.describe "GET /api/v1/lawyers/crm", type: :request do
       expect(row).not_to have_key("website")  # null-filtered
     end
   end
+
+  describe "scraped filter" do
+    before do
+      create(:lawyer, oab_id: "PR_74001", state: "PR", crm_data: { "scraper" => { "scraped" => "true" } })
+      create(:lawyer, oab_id: "PR_74002", state: "PR", crm_data: { "scraper" => { "scraped" => "false" } })
+      create(:lawyer, oab_id: "PR_74003", state: "PR", crm_data: {})
+    end
+
+    it "returns only rows with crm_data.scraper.scraped = 'true' when scraped=true" do
+      get "/api/v1/lawyers/crm", params: { scraped: "true" }, headers: headers
+      oab_ids = JSON.parse(response.body)["lawyers"].map { |l| l["oab_id"] }
+      expect(oab_ids).to include("PR_74001")
+      expect(oab_ids).not_to include("PR_74002", "PR_74003")
+    end
+  end
+
+  describe "stage filter" do
+    before do
+      create(:lawyer, oab_id: "PR_75001", state: "PR", crm_data: { "outreach" => { "stage" => "contacted" } })
+      create(:lawyer, oab_id: "PR_75002", state: "PR", crm_data: { "outreach" => { "stage" => "new" } })
+    end
+
+    it "filters by exact stage match" do
+      get "/api/v1/lawyers/crm", params: { stage: "contacted" }, headers: headers
+      oab_ids = JSON.parse(response.body)["lawyers"].map { |l| l["oab_id"] }
+      expect(oab_ids).to include("PR_75001")
+      expect(oab_ids).not_to include("PR_75002")
+    end
+  end
+
+  describe "has_instagram filter" do
+    before do
+      create(:lawyer, oab_id: "PR_76001", state: "PR", instagram: "@foo")
+      create(:lawyer, oab_id: "PR_76002", state: "PR", instagram: nil)
+      create(:lawyer, oab_id: "PR_76003", state: "PR", instagram: "")
+    end
+
+    it "returns only rows with non-empty instagram when has_instagram=true" do
+      get "/api/v1/lawyers/crm", params: { has_instagram: "true" }, headers: headers
+      oab_ids = JSON.parse(response.body)["lawyers"].map { |l| l["oab_id"] }
+      expect(oab_ids).to eq(["PR_76001"])
+    end
+  end
+
+  describe "has_website filter" do
+    before do
+      create(:lawyer, oab_id: "PR_77001", state: "PR", website: "https://x.com")
+      create(:lawyer, oab_id: "PR_77002", state: "PR", website: nil)
+      create(:lawyer, oab_id: "PR_77003", state: "PR", website: "")
+    end
+
+    it "returns only rows with non-empty website when has_website=true" do
+      get "/api/v1/lawyers/crm", params: { has_website: "true" }, headers: headers
+      oab_ids = JSON.parse(response.body)["lawyers"].map { |l| l["oab_id"] }
+      expect(oab_ids).to eq(["PR_77001"])
+    end
+  end
+
+  describe "filter combination" do
+    before do
+      create(:lawyer, oab_id: "PR_78001", state: "PR", instagram: "@a",
+             crm_data: { "scraper" => { "scraped" => "true" }, "outreach" => { "stage" => "contacted" } })
+      create(:lawyer, oab_id: "PR_78002", state: "PR", instagram: "@b",
+             crm_data: { "scraper" => { "scraped" => "true" }, "outreach" => { "stage" => "new" } })
+    end
+
+    it "ANDs filters together" do
+      get "/api/v1/lawyers/crm",
+        params: { scraped: "true", stage: "contacted", has_instagram: "true" },
+        headers: headers
+      oab_ids = JSON.parse(response.body)["lawyers"].map { |l| l["oab_id"] }
+      expect(oab_ids).to eq(["PR_78001"])
+    end
+  end
 end
