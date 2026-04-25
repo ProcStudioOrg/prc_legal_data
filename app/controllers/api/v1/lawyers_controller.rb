@@ -284,9 +284,47 @@ module Api
         }, status: :internal_server_error
       end
 
-      # --- List lawyers with CRM data (stub) ---
+      # --- List lawyers with CRM data ---
       def crm_index
-        render json: { lawyers: [], meta: { returned: 0, next_from_oab: nil, filters_applied: {} } }, status: :ok
+        state = params[:state]&.upcase
+
+        if state.present? && !VALID_STATES.include?(state)
+          render json: { error: "Estado inválido. Estados válidos: #{VALID_STATES.join(', ')}" }, status: :bad_request
+          return
+        end
+
+        limit = [[params.fetch(:limit, 50).to_i, 1].max, 100].min
+
+        lawyers = Lawyer
+          .where("is_procstudio IS NULL OR is_procstudio = false")
+          .where(principal_lawyer_id: nil)
+
+        lawyers = lawyers.where(state: state) if state.present?
+
+        lawyers = lawyers.order(oab_id: :desc).limit(limit + 1)
+
+        records = lawyers.to_a
+        has_more = records.length > limit
+        page = has_more ? records.first(limit) : records
+
+        serialized = page.map { |l| LawyerCrmListSerializer.new(l).as_json }
+        next_from_oab = has_more ? page.last.oab_id : nil
+
+        render json: {
+          lawyers: serialized,
+          meta: {
+            returned: serialized.length,
+            next_from_oab: next_from_oab,
+            filters_applied: filters_applied_summary
+          }
+        }, status: :ok
+      rescue => e
+        Rails.logger.error("Error in crm_index: #{e.message}\n#{e.backtrace&.first(5)&.join("\n")}")
+        render json: {
+          error: "Erro interno ao listar advogados (CRM)",
+          error_type: e.class.name,
+          request_id: request.request_id
+        }, status: :internal_server_error
       end
 
       VALID_STATES = %w[
@@ -537,6 +575,18 @@ module Api
             code: "active"
           }
         end
+      end
+
+      def filters_applied_summary
+        {
+          state: params[:state]&.upcase,
+          scraped: params[:scraped],
+          stage: params[:stage],
+          min_lead_score: params[:min_lead_score],
+          has_instagram: params[:has_instagram],
+          has_website: params[:has_website],
+          from_oab: params[:from_oab]
+        }.compact
       end
 
       def set_lawyer
