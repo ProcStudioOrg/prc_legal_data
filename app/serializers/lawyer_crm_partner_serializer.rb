@@ -12,7 +12,7 @@ class LawyerCrmPartnerSerializer
       value = @lawyer.public_send(field)
       hash[field] = value unless blank_for_emit?(value)
     end
-    hash[:partnership_type] = @partnership_type if @partnership_type
+    hash[:partnership_type] = @partnership_type
     hash[:crm_data] = @lawyer.crm_data || {}
     hash[:supplementaries] = @lawyer.supplementary_lawyers.map(&:oab_id)
     hash

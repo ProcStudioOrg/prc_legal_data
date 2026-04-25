@@ -77,6 +77,10 @@ class LawyerCrmSerializer
     soc_hash
   end
 
+  # NOTE: This reads partner_ls.lawyer.oab_id, which triggers an N+1 unless
+  # the controller eager-loads:
+  #   includes(lawyer_societies: { society: { lawyer_societies: :lawyer } })
+  # show_crm sets up that eager load (see lawyers_controller.rb).
   def sorted_other_partners(society)
     society.lawyer_societies
       .reject { |partner_ls| partner_ls.lawyer_id == @lawyer.id }
