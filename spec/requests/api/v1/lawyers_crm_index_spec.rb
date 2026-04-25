@@ -190,4 +190,39 @@ RSpec.describe "GET /api/v1/lawyers/crm", type: :request do
       expect(JSON.parse(response.body)["error"]).to include("min_lead_score")
     end
   end
+
+  describe "cursor pagination" do
+    before do
+      create(:lawyer, oab_id: "PR_80004", state: "PR")
+      create(:lawyer, oab_id: "PR_80003", state: "PR")
+      create(:lawyer, oab_id: "PR_80002", state: "PR")
+      create(:lawyer, oab_id: "PR_80001", state: "PR")
+    end
+
+    it "paginates with from_oab" do
+      get "/api/v1/lawyers/crm", params: { state: "PR", limit: 2 }, headers: headers
+      json = JSON.parse(response.body)
+      expect(json["lawyers"].map { |l| l["oab_id"] }).to eq(["PR_80004", "PR_80003"])
+      expect(json["meta"]["next_from_oab"]).to eq("PR_80003")
+
+      get "/api/v1/lawyers/crm",
+        params: { state: "PR", limit: 2, from_oab: json["meta"]["next_from_oab"] },
+        headers: headers
+      json2 = JSON.parse(response.body)
+      expect(json2["lawyers"].map { |l| l["oab_id"] }).to eq(["PR_80002", "PR_80001"])
+      expect(json2["meta"]["next_from_oab"]).to be_nil
+    end
+
+    it "clamps limit to 100" do
+      get "/api/v1/lawyers/crm", params: { state: "PR", limit: 999 }, headers: headers
+      json = JSON.parse(response.body)
+      expect(json["lawyers"].length).to be <= 100
+    end
+
+    it "clamps limit to 1 minimum" do
+      get "/api/v1/lawyers/crm", params: { state: "PR", limit: 0 }, headers: headers
+      json = JSON.parse(response.body)
+      expect(json["lawyers"].length).to eq(1)
+    end
+  end
 end

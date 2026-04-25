@@ -330,6 +330,9 @@ module Api
           )
         end
 
+        from_oab = params[:from_oab]
+        lawyers = lawyers.where("oab_id < ?", from_oab) if from_oab.present?
+
         lawyers = lawyers.order(oab_id: :desc).limit(limit + 1)
 
         records = lawyers.to_a
