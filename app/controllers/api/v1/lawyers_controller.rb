@@ -246,11 +246,22 @@ module Api
           return
         end
 
-        # Resolve principal: walk to principal if @lawyer is supplementary
-        principal_lawyer = @lawyer.principal_lawyer_id.present? ? @lawyer.principal_lawyer : @lawyer
+        # Re-fetch with eager loading so the serializer doesn't N+1.
+        base_relation = Lawyer.includes(
+          :supplementary_lawyers,
+          :principal_lawyer,
+          lawyer_societies: { society: { lawyer_societies: :lawyer } }
+        )
+        loaded = base_relation.find_by(id: @lawyer.id)
+
+        principal_lawyer = loaded.principal_lawyer_id.present? ? loaded.principal_lawyer : loaded
+        # When walking principal -> reload principal with the same eager set so partner societies are loaded.
+        if loaded.principal_lawyer_id.present?
+          principal_lawyer = base_relation.find_by(id: loaded.principal_lawyer_id)
+        end
 
         unless principal_lawyer
-          Rails.logger.error("Data Integrity: supplementary lawyer #{@lawyer.id} has principal_lawyer_id #{@lawyer.principal_lawyer_id} but principal not found")
+          Rails.logger.error("Data Integrity Issue: supplementary lawyer #{loaded.id} has principal_lawyer_id #{loaded.principal_lawyer_id} but principal not found")
           render json: { error: "Erro interno: Registro principal associado não encontrado.", request_id: request.request_id }, status: :internal_server_error
           return
         end
