@@ -208,4 +208,57 @@ RSpec.describe LawyerCrmSerializer do
       expect(p).not_to have_key(:societies)
     end
   end
+
+  describe '#as_json — partner truncation' do
+    let(:principal) { create(:lawyer, oab_id: "PR_00001") }
+
+    def setup_society_with_other_partners(other_partner_count)
+      society = create(:society, number_of_partners: other_partner_count + 1)
+      create(:lawyer_society, lawyer: principal, society: society, partnership_type: :socio)
+      other_partner_count.times do |i|
+        partner = create(:lawyer, oab_id: "PR_#{format('%05d', 10000 + i)}")
+        create(:lawyer_society, lawyer: partner, society: society, partnership_type: :socio)
+      end
+      society
+    end
+
+    it 'returns truncated_partners=false when exactly 6 other partners' do
+      setup_society_with_other_partners(6)
+      result = described_class.new(principal.reload).as_json
+      soc = result[:societies].first
+      expect(soc[:partners].length).to eq(6)
+      expect(soc[:truncated_partners]).to eq(false)
+      expect(soc[:truncated_partner_oabs]).to eq([])
+    end
+
+    it 'returns truncated_partners=true when 7 other partners; 1 stub' do
+      setup_society_with_other_partners(7)
+      result = described_class.new(principal.reload).as_json
+      soc = result[:societies].first
+      expect(soc[:partners].length).to eq(6)
+      expect(soc[:truncated_partners]).to eq(true)
+      expect(soc[:truncated_partner_oabs].length).to eq(1)
+      expect(soc[:truncated_partner_oabs].first).to have_key(:oab_id)
+    end
+
+    it 'returns truncated_partners=true when 10 other partners; 4 stubs' do
+      setup_society_with_other_partners(10)
+      result = described_class.new(principal.reload).as_json
+      soc = result[:societies].first
+      expect(soc[:partners].length).to eq(6)
+      expect(soc[:truncated_partner_oabs].length).to eq(4)
+      expect(soc[:truncated_partner_oabs].all? { |s| s.keys == [:oab_id] }).to eq(true)
+    end
+
+    it 'truncated stubs continue the same sort order as partners' do
+      setup_society_with_other_partners(8)
+      result = described_class.new(principal.reload).as_json
+      soc = result[:societies].first
+      rendered_oabs = soc[:partners].map { |p| p[:oab_id] }
+      truncated_oabs = soc[:truncated_partner_oabs].map { |s| s[:oab_id] }
+      # Concatenated sequence is sorted ASC for the all-socio bucket
+      full = rendered_oabs + truncated_oabs
+      expect(full).to eq(full.sort)
+    end
+  end
 end
