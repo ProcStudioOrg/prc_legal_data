@@ -1,0 +1,173 @@
+meta {
+  name: Atualizar Advogado CRM
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{base_url}}/lawyer/{{oab_id}}/crm
+  body: json
+  auth: none
+}
+
+headers {
+  X-API-KEY: {{api_key}}
+  Content-Type: application/json
+}
+
+body:json {
+    {
+      "researched": true,
+      "last_research_date": "2026-04-25",
+      "trial_active": true,
+  
+      "scraper": {
+        "scraped": "true",
+        "scraped_at": "2026-04-25T14:32:11Z",
+        "scraper_version": "v2.1.0",
+        "lead_score": 78,
+        "sources": ["instagram", "linkedin", "website"],
+        "social": {
+          "instagram": {
+            "handle": "@andregranja",
+            "followers": 4820,
+            "verified": false,
+            "bio": "Advogado tributarista | Sócio @urbanovitalino"
+          },
+          "linkedin": {
+            "url": "https://linkedin.com/in/andre-granja-ferreira",
+            "headline": "Tax Lawyer at Urbano Vitalino Advogados",
+            "connections_500_plus": true
+          },
+          "facebook": null,
+          "twitter": null
+        },
+        "website": {
+          "url": "https://www.urbanovitalino.com.br/equipe/andre-granja",
+          "personal_page": true,
+          "has_contact_form": true
+        },
+        "enrichment": {
+          "office_size": "large",
+          "city_confirmed": "Recife",
+          "specialties_detected": ["tributário", "empresarial"],
+          "languages": ["pt", "en"],
+          "publications_count": 12
+        }
+      },
+  
+      "outreach": {
+        "stage": "contacted",
+        "first_contact_at": "2026-04-23T10:15:00Z",
+        "last_contact_at": "2026-04-25T09:00:00Z",
+        "contact_count": 2,
+        "channel": "linkedin",
+        "owner": "ana.silva@procstudio.com",
+        "next_action": "follow_up_call",
+        "next_action_due": "2026-04-30",
+        "messages": [
+          {
+            "at": "2026-04-23T10:15:00Z",
+            "channel": "linkedin",
+            "direction": "outbound",
+            "subject": "Conversa sobre Procstudio",
+            "summary": "Apresentação inicial, lead respondeu interessado"
+          },
+          {
+            "at": "2026-04-25T09:00:00Z",
+            "channel": "email",
+            "direction": "outbound",
+            "subject": "Follow-up — demonstração agendada",
+            "summary": "Demo agendada para 30/04"
+          }
+        ]
+      },
+  
+      "signals": {
+        "has_website": true,
+        "has_instagram": true,
+        "has_linkedin": true,
+        "has_facebook": false,
+        "active_litigator": true,
+        "recent_publications": true,
+        "office_partner_count": 466,
+        "is_decision_maker": true,
+        "fit_score_calculated": 0.84,
+        "tags": ["tier_1_office", "tax_specialty", "mid_size_responsive"]
+      }
+    }
+}
+
+vars:pre-request {
+  oab_id: PR_54159
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  ### Atualizar CRM Advogado (extended write)
+
+  Atualiza/adiciona dados ao `crm_data` do advogado. Aceita campos planos (`researched`, `contacted`, etc.) **e** três sub-hashes aninhados de profundidade arbitrária: `scraper`, `outreach`, `signals`.
+
+  **Parâmetros de URL:**
+  - `oab_id`: ID OAB do advogado (formato: ESTADO_NUMERO)
+
+  **Headers obrigatórios:**
+  - `X-API-KEY`: Chave de API válida com `role: "admin"` (write access)
+  - `Content-Type`: application/json
+
+  **Semântica de merge (deep_merge):**
+  - Sub-chaves não enviadas são **preservadas** (deep merge).
+  - **Arrays são substituídos**, não concatenados. Ex.: enviar `scraper.sources: ["linkedin"]` substitui o array existente.
+  - Sub-hashes são mesclados recursivamente. Ex.: enviar `scraper.social.instagram: "@x"` preserva `scraper.social.linkedin` se já existir.
+  - **Limitação:** deletar uma chave enviando `null` **não funciona** nesta versão (o `compact` do Rails strip nils antes do merge). Para "deletar", sobrescreva com o valor desejado ou envie o sub-hash completo com o estado final.
+
+  **Campos planos disponíveis (top-level do `crm_data`):**
+
+  | Campo | Tipo | Descrição |
+  |-------|------|-----------|
+  | `researched` | boolean | Já foi pesquisado? |
+  | `last_research_date` | string | Data da última pesquisa |
+  | `trial_active` | boolean | Está ativo (tem processos recentes)? |
+  | `tried_procstudio` | boolean | Já tentamos contato? |
+  | `mail_marketing` | boolean | Está na lista de mail marketing? |
+  | `mail_marketing_origin` | array | Origens: ["oab", "linkedin", "manual"] |
+  | `contacted` | boolean | Foi contatado? |
+  | `contacted_by` | string | Quem fez o contato |
+  | `contacted_when` | string | Quando |
+  | `contact_notes` | string | Notas |
+
+  **Sub-hashes aninhados (estrutura livre, deep-permitidos):**
+
+  | Sub-hash | Uso |
+  |----------|-----|
+  | `scraper` | Dados do scraper AI: `scraped`, `lead_score`, `sources`, `social`, `enrichment`, etc. |
+  | `outreach` | Estado do funil de contato: `stage`, `channel`, `messages`, `next_action`, etc. |
+  | `signals` | Sinais derivados pra ranking: `has_website`, `is_decision_maker`, `tags`, etc. |
+
+  **Resposta de sucesso (200):**
+
+  ``` json
+  {
+    "message": "Dados CRM atualizados com sucesso",
+    "oab_id": "PR_54159",
+    "crm_data": {
+      "researched": true,
+      "scraper": { "scraped": "true", "lead_score": 78, "social": { "instagram": { "handle": "@andregranja" } } },
+      "outreach": { "stage": "contacted" },
+      "signals":  { "has_website": true }
+    }
+  }
+  ```
+
+  **Erros possíveis:**
+  - 400: Nenhum parâmetro CRM fornecido
+  - 401: API key inválida
+  - 403: API key sem permissão de escrita (não é admin)
+  - 404: Advogado não encontrado
+  - 422: Erro de validação
+  - 500: Erro interno
+}

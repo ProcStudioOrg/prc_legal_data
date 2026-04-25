@@ -1,0 +1,110 @@
+meta {
+  name: Consultar Advogado por OAB CRM
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{base_url}}/lawyer/{{oab_id}}/crm
+  body: none
+  auth: none
+}
+
+headers {
+  X-API-KEY: {{api_key}}
+  Content-Type: application/json
+}
+
+vars:pre-request {
+  oab_id: PR_54159
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  ### Consultar Advogado CRM (lean read for AI scraper)
+
+  Retorna o payload mínimo necessário para enriquecimento via AI. Aplica null-filter agressivo (campos nulos/vazios são omitidos do JSON), inclui suplementares como array de `oab_id`, e renderiza sociedades com até 6 sócios + flag de truncamento.
+
+  **Parâmetros:**
+  - `oab_id`: ID OAB no formato ESTADO_NUMERO (ex: PR_54159). Pode ser um OAB principal OU suplementar — o endpoint resolve automaticamente para o principal.
+
+  **Headers obrigatórios:**
+  - `X-API-KEY`: Chave de API válida (read access suficiente)
+
+  **Regras do payload:**
+  - **Sempre presentes** (mesmo se vazios): `crm_data`, `supplementaries`, `societies`, identidade da sociedade (`name`/`oab_id`/`inscricao`), e flags `truncated_partners` / `truncated_partner_oabs`.
+  - **Filtrados (omitidos quando `null` ou string vazia):** todos os outros campos do principal e dos sócios. **Boolean `false` é emitido** (não confundir com `nil`).
+  - **Sócios:** ordenados por `partnership_type` (socio → socio_de_servico → associado), depois por `oab_id` ASC. Limite de 6 sócios renderizados; restantes aparecem em `truncated_partner_oabs` como stubs `{oab_id: "..."}`.
+  - **Não há recursão:** sócios não incluem suas próprias sociedades.
+
+  **Resposta de sucesso (200):**
+
+  ``` json
+  {
+    "principal": {
+      "full_name": "BRUNO PELLIZZETTI",
+      "oab_id": "PR_54159",
+      "state": "PR",
+      "city": "CURITIBA",
+      "situation": "situação regular",
+      "profession": "ADVOGADO",
+      "address": "RUA EXEMPLO 123",
+      "zip_code": "80010000",
+      "phone_number_1": "(41) 3333-4444",
+      "phone_1_has_whatsapp": true,
+      "instagram": "@bruno",
+      "crm_data": { "scraper": { "scraped": true } },
+      "supplementaries": ["SP_412300"],
+      "societies": [
+        {
+          "name": "PELLIZZETTI E WALBER ADVOGADOS",
+          "oab_id": "12345/6",
+          "inscricao": 567890,
+          "state": "PR",
+          "partnership_type": "socio",
+          "number_of_partners": 2,
+          "partners": [
+            {
+              "full_name": "WALBER OLIVEIRA SILVA",
+              "oab_id": "PR_88231",
+              "partnership_type": "socio",
+              "crm_data": {},
+              "supplementaries": []
+            }
+          ],
+          "truncated_partners": false,
+          "truncated_partner_oabs": []
+        }
+      ]
+    }
+  }
+  ```
+
+  **Truncamento (sociedade com >7 membros, ex.: URBANO VITALINO inscricao 74930, 466 sócios — query qualquer membro como PE_15660):**
+
+  ``` json
+  {
+    "partners": [ /* 6 partners */ ],
+    "truncated_partners": true,
+    "truncated_partner_oabs": [
+      { "oab_id": "PE_15660" },
+      { "oab_id": "PE_19273" }
+    ]
+  }
+  ```
+
+  **OABs de teste:**
+  - `PR_54159` — sem sociedade (payload mínimo)
+  - `MG_42099` — sociedade com 7 membros (sem truncamento, 6 sócios renderizados)
+  - `SP_103560` — LUCON ADVOGADOS, 8 membros (6 sócios + 1 truncado)
+  - `PE_15660` — URBANO VITALINO, 466 membros (6 sócios + 459 truncados)
+
+  **Erros possíveis:**
+  - 401: API key inválida ou ausente
+  - 404: Advogado não encontrado
+  - 422: Status do advogado principal inválido (cancelado/falecido)
+}

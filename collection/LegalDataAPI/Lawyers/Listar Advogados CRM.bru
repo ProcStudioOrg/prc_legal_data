@@ -1,0 +1,106 @@
+meta {
+  name: Listar Advogados CRM
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{base_url}}/lawyers/crm?scraped=true&stage=contacted&min_lead_score=70&has_instagram=true&state=PR&limit=20
+  body: none
+  auth: none
+}
+
+params:query {
+  scraped: true
+  stage: contacted
+  min_lead_score: 70
+  has_instagram: true
+  state: PR
+  limit: 20
+  ~has_website: true
+  ~from_oab: PR_99999
+}
+
+headers {
+  X-API-KEY: {{api_key}}
+  Content-Type: application/json
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}
+
+docs {
+  ### Listar Advogados CRM (feed CRM ingester)
+
+  Retorna advogados enriquecidos pelo scraper, filtrados por estado do CRM e sinais derivados. Paginação por cursor (`from_oab`), limite 1–100 (default 50).
+
+  **Headers obrigatórios:**
+  - `X-API-KEY`: Chave de API válida (read access suficiente)
+
+  **Default scope (sempre aplicado):**
+  - Apenas advogados principais (registros com `principal_lawyer_id IS NULL`)
+  - Exclui `is_procstudio = true`
+
+  **Filtros (todos opcionais, combinados com AND):**
+
+  | Param | SQL/Lógica | Notas |
+  |-------|-----------|-------|
+  | `scraped=true` | `crm_data->'scraper'->>'scraped' = 'true'` | Compara com string `'true'` (não boolean). |
+  | `stage=<valor>` | `crm_data->'outreach'->>'stage' = ?` | Match exato. Ex.: `contacted`, `new`, `qualified`. |
+  | `min_lead_score=<int>` | `crm_data->'scraper'->>'lead_score' ~ '^\d+$' AND ::int >= ?` | Regex pre-filter previne `PG::InvalidTextRepresentation`. Param não-numérico → 400. |
+  | `has_instagram=true` | `instagram IS NOT NULL AND instagram != ''` | |
+  | `has_website=true` | `website IS NOT NULL AND website != ''` | |
+  | `state=<UF>` | `state = ?` | Validado contra `VALID_STATES`. |
+  | `from_oab=<oab_id>` | `oab_id < ?` | Cursor de paginação. Use o `meta.next_from_oab` da página anterior. |
+  | `limit=<n>` | clamp `[1, 100]`, default `50` | `0 → 1`, `999 → 100`. |
+
+  **Resposta de sucesso (200):**
+
+  ``` json
+  {
+    "lawyers": [
+      {
+        "oab_id": "PR_54159",
+        "full_name": "BRUNO PELLIZZETTI",
+        "state": "PR",
+        "city": "CURITIBA",
+        "phone_number_1": "(41) 3333-4444",
+        "instagram": "@brunopellizzetti",
+        "has_society": true,
+        "crm_data": {
+          "scraper": { "scraped": "true", "lead_score": 78 },
+          "outreach": { "stage": "contacted" }
+        }
+      }
+    ],
+    "meta": {
+      "returned": 1,
+      "next_from_oab": null,
+      "filters_applied": {
+        "scraped": "true",
+        "stage": "contacted",
+        "min_lead_score": "70",
+        "has_instagram": "true",
+        "state": "PR"
+      }
+    }
+  }
+  ```
+
+  **Shape da linha (LawyerCrmListSerializer):**
+  - Sempre presente: `crm_data` (default `{}`).
+  - Filtrados (omitidos quando nulos/vazios): `full_name`, `oab_id`, `state`, `city`, `phone_number_1`, `phone_number_2`, `email`, `instagram`, `website`, `has_society`.
+  - **Não inclui:** `societies`, `partners`, `supplementaries`. Para detalhes, use `GET /lawyer/:oab/crm`.
+
+  **Paginação:**
+  1. Primeira página: `GET /lawyers/crm?state=PR&limit=50`
+  2. Próxima página: `GET /lawyers/crm?state=PR&limit=50&from_oab=<meta.next_from_oab>`
+  3. Final: `meta.next_from_oab` é `null`.
+
+  **Erros possíveis:**
+  - 400: `state` inválido ou `min_lead_score` não-numérico
+  - 401: API key inválida
+  - 500: Erro interno
+}

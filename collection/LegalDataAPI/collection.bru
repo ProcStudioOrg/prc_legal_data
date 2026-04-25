@@ -5,3 +5,23 @@ meta {
 auth {
   mode: none
 }
+
+docs {
+  # Legal Data API — v1.1
+
+  Backend Rails API for Brazilian lawyer (OAB) registry data, society relationships, and CRM enrichment workflow.
+
+  ## CRM methods (added v1.1)
+
+  Three coordinated endpoints support the AI scraper → prc_legal_data → CRM ingester flow:
+
+  - **GET `/api/v1/lawyer/:oab/crm`** — token-lean lawyer payload for the AI scraper. Aggressive null-filter, society partners capped at 6 with truncation flag.
+  - **POST `/api/v1/lawyer/:oab/crm`** — extended write endpoint accepting nested `scraper`/`outreach`/`signals` hashes via deep_merge semantics. Backwards-compatible with prior flat-field updates.
+  - **GET `/api/v1/lawyers/crm`** — CRM ingester listing with JSONB filters (`scraped`, `stage`, `min_lead_score`, `has_instagram`, `has_website`), state filter, and `from_oab` cursor pagination.
+
+  See full test guide: `docs/lawyer_crm_test_guide.md`.
+
+  ## Authentication
+
+  All endpoints require `X-API-KEY` header. Read endpoints accept any active key. Write endpoints (POST/PATCH/DELETE) require an admin-role key (`ApiKey.role == "admin"`).
+}
