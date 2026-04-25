@@ -83,11 +83,12 @@ RSpec.describe "GET /api/v1/lawyer/:oab/crm", type: :request do
         get "/api/v1/lawyer/PR_30001/crm", headers: headers
       end
 
-      # Expected queries: api_key auth (~2) + set_lawyer find + two eager-loaded base_relation
-      # fetches (for the principal path each fires ~5-6 queries covering supplementary_lawyers,
-      # principal_lawyer, lawyer_societies, societies, and nested lawyer_societies+lawyers).
-      # No per-partner repetition — count is fixed at ~25 regardless of society size.
-      expect(query_count).to be < 30
+      # Eager loading caps query count regardless of society size or PARTNER_LIMIT.
+      # Each partner's supplementary_lawyers are loaded in batch, not per-partner.
+      # Baseline after fix: ~20 queries (api_key auth + set_lawyer + two eager base_relation
+      # fetches covering supplementary_lawyers, principal_lawyer, lawyer_societies,
+      # societies, nested lawyer_societies+lawyers, and partners' supplementary_lawyers).
+      expect(query_count).to be < 23
       expect(response).to have_http_status(:ok)
     end
   end

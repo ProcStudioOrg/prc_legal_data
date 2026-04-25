@@ -250,7 +250,7 @@ module Api
         base_relation = Lawyer.includes(
           :supplementary_lawyers,
           :principal_lawyer,
-          lawyer_societies: { society: { lawyer_societies: :lawyer } }
+          lawyer_societies: { society: { lawyer_societies: { lawyer: :supplementary_lawyers } } }
         )
         loaded = base_relation.find_by(id: @lawyer.id)
 
