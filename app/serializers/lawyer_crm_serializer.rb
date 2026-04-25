@@ -19,7 +19,7 @@ class LawyerCrmSerializer
       hash[field] = value unless blank_for_emit?(value)
     end
     hash[:crm_data] = @lawyer.crm_data || {}
-    hash[:supplementaries] = []  # filled in by Task 3
+    hash[:supplementaries] = @lawyer.supplementary_lawyers.map(&:oab_id)
     hash[:societies] = []        # filled in by Task 4+
     hash
   end

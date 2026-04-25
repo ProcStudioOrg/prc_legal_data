@@ -79,4 +79,21 @@ RSpec.describe LawyerCrmSerializer do
       expect(result).not_to have_key(:instagram)
     end
   end
+
+  describe '#as_json — supplementaries' do
+    it 'returns empty array when no supplementaries' do
+      lawyer = create(:lawyer, oab_id: "PR_50000")
+      result = described_class.new(lawyer).as_json
+      expect(result[:supplementaries]).to eq([])
+    end
+
+    it 'returns oab_id strings when lawyer is principal' do
+      principal = create(:lawyer, oab_id: "DF_40007")
+      create(:lawyer, oab_id: "PR_131010", principal_lawyer: principal)
+      create(:lawyer, oab_id: "SP_222222", principal_lawyer: principal)
+
+      result = described_class.new(principal.reload).as_json
+      expect(result[:supplementaries]).to match_array(["PR_131010", "SP_222222"])
+    end
+  end
 end
