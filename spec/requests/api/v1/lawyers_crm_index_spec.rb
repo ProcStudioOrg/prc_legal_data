@@ -160,4 +160,34 @@ RSpec.describe "GET /api/v1/lawyers/crm", type: :request do
       expect(oab_ids).to eq(["PR_78001"])
     end
   end
+
+  describe "min_lead_score filter" do
+    before do
+      create(:lawyer, oab_id: "PR_79001", state: "PR", crm_data: { "scraper" => { "lead_score" => 90 } })
+      create(:lawyer, oab_id: "PR_79002", state: "PR", crm_data: { "scraper" => { "lead_score" => 50 } })
+      create(:lawyer, oab_id: "PR_79003", state: "PR", crm_data: { "scraper" => { "lead_score" => "not-a-number" } })
+      create(:lawyer, oab_id: "PR_79004", state: "PR", crm_data: {})
+    end
+
+    it "returns rows with numeric lead_score >= threshold" do
+      get "/api/v1/lawyers/crm", params: { min_lead_score: "70" }, headers: headers
+      oab_ids = JSON.parse(response.body)["lawyers"].map { |l| l["oab_id"] }
+      expect(oab_ids).to eq(["PR_79001"])
+    end
+
+    it "does not raise when a row has a non-numeric lead_score" do
+      expect {
+        get "/api/v1/lawyers/crm", params: { min_lead_score: "10" }, headers: headers
+      }.not_to raise_error
+      expect(response).to have_http_status(:ok)
+      oab_ids = JSON.parse(response.body)["lawyers"].map { |l| l["oab_id"] }
+      expect(oab_ids).to match_array(["PR_79001", "PR_79002"])  # PR_79003 excluded by regex
+    end
+
+    it "returns 400 when min_lead_score is non-numeric" do
+      get "/api/v1/lawyers/crm", params: { min_lead_score: "abc" }, headers: headers
+      expect(response).to have_http_status(:bad_request)
+      expect(JSON.parse(response.body)["error"]).to include("min_lead_score")
+    end
+  end
 end

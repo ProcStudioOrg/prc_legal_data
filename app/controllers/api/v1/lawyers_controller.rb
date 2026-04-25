@@ -293,6 +293,12 @@ module Api
           return
         end
 
+        min_lead_score = params[:min_lead_score]
+        if min_lead_score.present? && !min_lead_score.to_s.match?(/\A\d+\z/)
+          render json: { error: "min_lead_score deve ser numérico" }, status: :bad_request
+          return
+        end
+
         limit = [[params.fetch(:limit, 50).to_i, 1].max, 100].min
 
         lawyers = Lawyer
@@ -315,6 +321,13 @@ module Api
 
         if params[:has_website] == "true"
           lawyers = lawyers.where("website IS NOT NULL AND website != ''")
+        end
+
+        if min_lead_score.present?
+          lawyers = lawyers.where(
+            "crm_data->'scraper'->>'lead_score' ~ '^\\d+$' AND (crm_data->'scraper'->>'lead_score')::int >= ?",
+            min_lead_score.to_i
+          )
         end
 
         lawyers = lawyers.order(oab_id: :desc).limit(limit + 1)
