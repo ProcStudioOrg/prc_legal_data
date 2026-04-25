@@ -195,4 +195,139 @@ namespace :lawyers do
     puts "Next step: run face comparison with:"
     puts "  python3 scripts/compare_faces.py #{output_file}"
   end
+
+  desc "Find duplicate-name clusters with actionable supplementaries (unlinked or misanchored)"
+  task find_unlinked_clusters: :environment do
+    output_file = ENV.fetch('OUTPUT', Rails.root.join('tmp', 'unlinked_clusters.json').to_s)
+    only_safe   = ENV['ONLY_SAFE'] == 'true'
+    bucket      = Rails.application.config.s3[:profile_pictures_bucket]
+
+    total = Lawyer.count
+    puts "Building normalized name index of #{total} lawyer records..."
+
+    name_index = Hash.new { |h, k| h[k] = [] }
+    processed = 0
+    Lawyer.find_each(batch_size: 5000) do |l|
+      processed += 1
+      print "\r  #{processed}/#{total}" if processed % 50_000 == 0
+      next if l.full_name.to_s.strip.empty?
+      name_index[Lawyers::ClusterClassifier.normalize(l.full_name)] << l
+    end
+    puts "\n  index size: #{name_index.size}"
+
+    puts "Classifying clusters..."
+    counts  = Hash.new(0)
+    results = []
+
+    name_index.each do |norm_name, members|
+      next if members.size < 2
+      result = Lawyers::ClusterClassifier.classify(members)
+      counts[result[:type]] += 1
+
+      proposed = Lawyers::ClusterClassifier.proposed_links(result)
+
+      # Skip clusters where there's nothing to do (NO_ACTION, ambiguous/orphan with no proposals).
+      # When ONLY_SAFE: keep only types in SAFE_TYPES with non-empty proposals.
+      next if proposed.empty? && !ambiguous_for_review?(result[:type])
+      next if only_safe && !Lawyers::ClusterClassifier::SAFE_TYPES.include?(result[:type])
+
+      img_url = ->(path) { path.present? ? "https://#{bucket}.s3.amazonaws.com/#{path}" : nil }
+
+      results << {
+        normalized_name: norm_name,
+        type:            result[:type],
+        reason:          result[:reason],
+        principal: result[:principal] && {
+          oab_id:              result[:principal].oab_id,
+          id:                  result[:principal].id,
+          full_name:           result[:principal].full_name,
+          state:               result[:principal].state,
+          profile_picture_url: img_url.call(result[:principal].profile_picture)
+        },
+        principal_id_inferred: result[:principal_id],
+        all_principals: (result[:all_principals] || []).map do |p|
+          { oab_id: p.oab_id, id: p.id, full_name: p.full_name, state: p.state }
+        end,
+        unlinked_supps: result[:unlinked_supps].map do |l|
+          {
+            oab_id:              l.oab_id, id: l.id, full_name: l.full_name, state: l.state,
+            profile_picture_url: img_url.call(l.profile_picture),
+            cna_picture_url:     img_url.call(l.cna_picture)
+          }
+        end,
+        linked_supps: (result[:linked_supps] || []).map do |l|
+          { oab_id: l.oab_id, id: l.id, principal_lawyer_id: l.principal_lawyer_id }
+        end,
+        misanchored_supps: (result[:misanchored_supps] || []).map do |l|
+          { oab_id: l.oab_id, id: l.id, principal_lawyer_id: l.principal_lawyer_id }
+        end,
+        bad_anchor_ids:       result[:bad_anchor_ids],
+        linked_principal_ids: result[:linked_principal_ids],
+        proposed_updates:     proposed
+      }
+    end
+
+    puts "\n=== Counts by type ==="
+    counts.each { |k, v| puts "  #{k}: #{v}" }
+    puts "\nWriting #{results.size} clusters to #{output_file}..."
+    File.write(output_file, JSON.pretty_generate(results))
+    puts "Done."
+    puts ""
+    puts "Next steps:"
+    puts "  - Review #{output_file}"
+    puts "  - Apply SAFE clusters:  rake lawyers:apply_name_links INPUT=#{output_file} DRY_RUN=true"
+    puts "  - AMBIGUOUS clusters need face comparison to disambiguate"
+  end
+
+  desc "Apply principal links from find_unlinked_clusters output (SAFE clusters only)"
+  task apply_name_links: :environment do
+    input_file = ENV.fetch('INPUT', Rails.root.join('tmp', 'unlinked_clusters.json').to_s)
+    dry_run    = ENV.fetch('DRY_RUN', 'true') == 'true'
+    verbose    = ENV['VERBOSE'] == 'true'
+
+    unless File.exist?(input_file)
+      puts "ERROR: #{input_file} not found. Run lawyers:find_unlinked_clusters first."
+      exit 1
+    end
+
+    puts dry_run ? "=== DRY RUN (set DRY_RUN=false to apply) ===" : "=== APPLYING CHANGES ==="
+    puts "Reading #{input_file}..."
+
+    data = JSON.parse(File.read(input_file))
+
+    safe_types = Lawyers::ClusterClassifier::SAFE_TYPES.map(&:to_s)
+    safe_clusters = data.select { |c| safe_types.include?(c['type']) && c['proposed_updates'].present? }
+
+    puts "Safe clusters: #{safe_clusters.size} / #{data.size}"
+
+    totals = { planned: 0, linked: 0, reanchored: 0, skipped: 0, errors: 0, clusters: 0 }
+
+    safe_clusters.each do |cluster|
+      puts "\n--- #{cluster['normalized_name']} (#{cluster['type']}, #{cluster['proposed_updates'].size} updates) ---" if verbose
+      r = Lawyers::Linker.apply(cluster['proposed_updates'], dry_run: dry_run) do |msg|
+        puts msg if verbose
+      end
+      totals[:planned]    += r.planned
+      totals[:linked]     += r.linked
+      totals[:reanchored] += r.reanchored
+      totals[:skipped]    += r.skipped
+      totals[:errors]     += r.errors
+      totals[:clusters]   += 1
+    end
+
+    puts "\n=== Summary ==="
+    puts "  Clusters touched:         #{totals[:clusters]}"
+    puts "  Updates #{dry_run ? 'planned' : 'applied'}:         #{totals[:linked] + totals[:reanchored]}"
+    puts "    new links:              #{totals[:linked]}"
+    puts "    re-anchors:             #{totals[:reanchored]}"
+    puts "  Already-correct (skipped): #{totals[:skipped]}"
+    puts "  Errors:                   #{totals[:errors]}"
+    puts dry_run ? "\nRun with DRY_RUN=false to apply." : "\nDone!"
+  end
+
+  # Whether to keep an ambiguous/orphan cluster in the output even with no proposed updates,
+  # so reviewers can see it. Currently we keep them out — they're recoverable by re-running.
+  def ambiguous_for_review?(_type)
+    false
+  end
 end
