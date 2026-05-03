@@ -18,6 +18,7 @@ class LawyerCrmListSerializer
       value = @lawyer.public_send(field)
       hash[field] = value unless blank_for_emit?(value)
     end
+    hash[:profile_picture] = profile_picture_url if @lawyer.profile_picture.present?
     hash[:crm_data] = @lawyer.crm_data || {}
     hash
   end
@@ -26,5 +27,10 @@ class LawyerCrmListSerializer
 
   def blank_for_emit?(value)
     value.nil? || value == ""
+  end
+
+  def profile_picture_url
+    bucket = Rails.application.config.s3[:profile_pictures_bucket]
+    "https://#{bucket}.s3.amazonaws.com/#{@lawyer.profile_picture}"
   end
 end
