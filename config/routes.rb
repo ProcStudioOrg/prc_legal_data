@@ -23,6 +23,13 @@ Rails.application.routes.draw do
       # Rotas de relações advogado-sociedade
       resources :lawyer_societies, only: [:create, :show, :update, :destroy]
 
+      # Monitoramento DJEN (onboarding de advogados solicitado pelo ProcStudio)
+      namespace :djen do
+        post 'monitorings', to: 'monitorings#create'
+        get 'monitorings/:oab', to: 'monitorings#show'
+        delete 'monitorings/:oab', to: 'monitorings#destroy'
+      end
+
     end
   end
 end
