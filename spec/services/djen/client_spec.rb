@@ -18,15 +18,15 @@ RSpec.describe Djen::Client do
 
   describe "#each_comunicacao" do
     it "paginates until an empty page" do
-      stub_page(pagina: 1, items: [djen_item("id" => 1), djen_item("id" => 2)])
-      stub_page(pagina: 2, items: [djen_item("id" => 3)])
+      stub_page(pagina: 1, items: [ djen_item("id" => 1), djen_item("id" => 2) ])
+      stub_page(pagina: 2, items: [ djen_item("id" => 3) ])
       stub_page(pagina: 3, items: [])
 
       ids = client.each_comunicacao(numero_oab: "54159", uf_oab: "PR",
                                     data_inicio: Date.new(2026, 7, 1),
                                     data_fim: Date.new(2026, 7, 10)).map { |i| i["id"] }
 
-      expect(ids).to eq([1, 2, 3])
+      expect(ids).to eq([ 1, 2, 3 ])
     end
 
     it "sends the OAB and date window as query params" do
@@ -74,7 +74,7 @@ RSpec.describe Djen::Client do
     end
 
     it "acquires a rate limit slot before every request" do
-      stub_page(pagina: 1, items: [djen_item])
+      stub_page(pagina: 1, items: [ djen_item ])
       stub_page(pagina: 2, items: [])
 
       client.each_comunicacao(numero_oab: "54159", uf_oab: "PR",

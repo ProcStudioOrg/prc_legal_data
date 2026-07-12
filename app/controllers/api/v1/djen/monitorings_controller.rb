@@ -4,7 +4,7 @@ module Api
       class MonitoringsController < ApplicationController
         include ApiAuthentication
 
-        before_action :authorize_write!, only: [:create, :destroy]
+        before_action :authorize_write!, only: [ :create, :destroy ]
         before_action :set_principal_lawyer
 
         # POST /api/v1/djen/monitorings  { "oab": "PR_54159" }

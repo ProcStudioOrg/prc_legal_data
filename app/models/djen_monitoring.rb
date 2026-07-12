@@ -15,6 +15,6 @@ class DjenMonitoring < ApplicationRecord
 
   # All lawyer rows swept for this monitoring: principal + supplementary OABs.
   def monitored_lawyers
-    [lawyer] + lawyer.supplementary_lawyers.to_a
+    [ lawyer ] + lawyer.supplementary_lawyers.to_a
   end
 end

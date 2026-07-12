@@ -19,27 +19,27 @@ RSpec.describe Djen::Sweep do
 
   it "creates ledger rows with raw payload and labels" do
     item = djen_item("id" => 111)
-    result = sweep({"54159/PR" => [item]})
+    result = sweep({ "54159/PR" => [ item ] })
 
     expect(result.created).to eq(1)
     record = DjenComunicacao.find_by(djen_id: 111)
     expect(record.raw).to eq(item)
     expect(record.sigla_tribunal).to eq("TJPR")
-    expect(record.labels).to eq(["novo_processo"])
+    expect(record.labels).to eq([ "novo_processo" ])
     expect(monitoring.reload.last_swept_at).to be_present
   end
 
   it "labels a repeated processo as processo_conhecido" do
-    sweep({"54159/PR" => [djen_item("id" => 1, "numero_processo" => "123")]})
-    sweep({"54159/PR" => [djen_item("id" => 2, "numero_processo" => "123")]})
+    sweep({ "54159/PR" => [ djen_item("id" => 1, "numero_processo" => "123") ] })
+    sweep({ "54159/PR" => [ djen_item("id" => 2, "numero_processo" => "123") ] })
 
-    expect(DjenComunicacao.find_by(djen_id: 2).labels).to eq(["processo_conhecido"])
+    expect(DjenComunicacao.find_by(djen_id: 2).labels).to eq([ "processo_conhecido" ])
   end
 
   it "is idempotent by djen_id" do
     item = djen_item("id" => 111)
-    sweep({"54159/PR" => [item]})
-    result = sweep({"54159/PR" => [item]})
+    sweep({ "54159/PR" => [ item ] })
+    result = sweep({ "54159/PR" => [ item ] })
 
     expect(result.created).to eq(0)
     expect(DjenComunicacao.where(djen_id: 111).count).to eq(1)
@@ -50,18 +50,18 @@ RSpec.describe Djen::Sweep do
                     suplementary: true, principal_lawyer: principal)
     shared = djen_item("id" => 500)
 
-    result = sweep({"54159/PR" => [shared], "99001/SC" => [shared, djen_item("id" => 501)]})
+    result = sweep({ "54159/PR" => [ shared ], "99001/SC" => [ shared, djen_item("id" => 501) ] })
 
     expect(result.created).to eq(2)
     expect(DjenComunicacao.pluck(:djen_id)).to contain_exactly(500, 501)
   end
 
   it "detects cancellations (ativo true -> false)" do
-    sweep({"54159/PR" => [djen_item("id" => 111)]})
+    sweep({ "54159/PR" => [ djen_item("id" => 111) ] })
 
     cancelled = djen_item("id" => 111, "ativo" => false,
                           "motivo_cancelamento" => "Publicada em duplicidade")
-    result = sweep({"54159/PR" => [cancelled]})
+    result = sweep({ "54159/PR" => [ cancelled ] })
 
     expect(result.cancelled).to eq(1)
     record = DjenComunicacao.find_by(djen_id: 111)
@@ -70,7 +70,7 @@ RSpec.describe Djen::Sweep do
   end
 
   it "learns the djen_advogado_id from the first matching item" do
-    sweep({"54159/PR" => [djen_item]})
+    sweep({ "54159/PR" => [ djen_item ] })
 
     expect(principal.reload.djen_advogado_id).to eq(47882)
   end
@@ -84,7 +84,7 @@ RSpec.describe Djen::Sweep do
       ]
     )
 
-    sweep({"54159/PR" => [conflicting]})
+    sweep({ "54159/PR" => [ conflicting ] })
 
     expect(DjenComunicacao.find_by(djen_id: 900).labels).to include("ambiguo")
     expect(principal.reload.djen_advogado_id).to eq(47882) # never overwritten

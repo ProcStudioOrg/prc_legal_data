@@ -7,7 +7,7 @@ FactoryBot.define do
     sigla_tribunal { "TJPR" }
     data_disponibilizacao { Date.current }
     ativo { true }
-    labels { ["novo_processo"] }
+    labels { [ "novo_processo" ] }
     raw { { "id" => djen_id, "siglaTribunal" => sigla_tribunal } }
 
     trait :pushed do
