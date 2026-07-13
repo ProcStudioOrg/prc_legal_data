@@ -4,7 +4,10 @@ module Api
       class MonitoringsController < ApplicationController
         include ApiAuthentication
 
-        before_action :authorize_write!, only: [ :create, :destroy ]
+        # ProcStudio deliberately holds only a read API key (no admin key in the
+        # app), so activating a watch is allowed to any active key. Deactivation
+        # stays admin-only: silently pausing a watch means missed intimações.
+        before_action :authorize_write!, only: [ :destroy ]
         before_action :set_principal_lawyer
 
         # POST /api/v1/djen/monitorings  { "oab": "PR_54159" }

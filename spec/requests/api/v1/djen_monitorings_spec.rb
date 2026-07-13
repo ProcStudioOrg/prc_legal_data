@@ -66,13 +66,13 @@ RSpec.describe "Api::V1::Djen::Monitorings", type: :request do
       expect(response).to have_http_status(:bad_request)
     end
 
-    it "requires an admin key" do
+    it "accepts a read-only key (ProcStudio holds no admin key)" do
       read_key = ApiKey.create!(user: user, role: "read", active: true)
 
       post "/api/v1/djen/monitorings", params: { oab: "PR_54159" },
            headers: { "X-API-KEY" => read_key.key }
 
-      expect(response).to have_http_status(:forbidden)
+      expect(response).to have_http_status(:created)
     end
 
     it "rejects requests without a valid API key" do
@@ -105,6 +105,15 @@ RSpec.describe "Api::V1::Djen::Monitorings", type: :request do
   end
 
   describe "DELETE /api/v1/djen/monitorings/:oab" do
+    it "requires an admin key" do
+      create(:djen_monitoring, lawyer: lawyer)
+      read_key = ApiKey.create!(user: user, role: "read", active: true)
+
+      delete "/api/v1/djen/monitorings/PR_54159", headers: { "X-API-KEY" => read_key.key }
+
+      expect(response).to have_http_status(:forbidden)
+    end
+
     it "deactivates the monitoring but keeps history" do
       monitoring = create(:djen_monitoring, lawyer: lawyer)
       create(:djen_comunicacao, djen_monitoring: monitoring)
