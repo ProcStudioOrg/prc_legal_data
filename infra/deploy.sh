@@ -41,7 +41,9 @@ ssh "${VPS_HOST}" bash <<REMOTE
   # banco físico do primário — carga manual, só no primeiro deploy.
   if ! RAILS_ENV=production bin/rails runner 'ActiveRecord::Base.connection.table_exists?(:solid_queue_jobs) or exit 1' >/dev/null 2>&1; then
     echo "--- Loading Solid Queue schema (first deploy) ---"
-    RAILS_ENV=production bin/rails db:schema:load:queue
+    # O check de ambiente protegido barra schema:load em produção; o
+    # queue_schema.rb só cria tabelas solid_queue_*, é seguro.
+    DISABLE_DATABASE_ENVIRONMENT_CHECK=1 RAILS_ENV=production bin/rails db:schema:load:queue
   fi
 
   echo "--- Restarting app ---"
