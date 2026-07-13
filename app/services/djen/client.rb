@@ -11,6 +11,7 @@ module Djen
 
     PER_PAGE = 100
     RATE_LIMIT_WAIT = 60         # seconds after a 429, plus jitter
+    RATE_LIMIT_RETRIES = 5       # then raise: solid_queue's retry_on takes over
     SERVER_ERROR_RETRIES = 3
     SERVER_ERROR_BASE_WAIT = 5   # 5s, 25s, 125s
 
@@ -54,13 +55,18 @@ module Djen
       uri.query = URI.encode_www_form(params)
 
       response = request_with_retries(uri)
-      JSON.parse(response.body)
+      body = JSON.parse(response.body)
+      raise Error, "DJEN returned a non-object body: #{body.class}" unless body.is_a?(Hash)
+      raise Error, "DJEN returned non-array items" unless body.fetch("items", []).is_a?(Array)
+
+      body
     rescue JSON::ParserError => e
       raise Error, "DJEN returned invalid JSON: #{e.message}"
     end
 
     def request_with_retries(uri)
       attempts = 0
+      rate_limited = 0
 
       loop do
         @rate_limiter.acquire!
@@ -71,6 +77,10 @@ module Djen
         when 200..299
           return response
         when 429
+          rate_limited += 1
+          # Sem teto o job seguraria um worker do solid_queue para sempre.
+          raise Error, "DJEN still rate-limiting after #{rate_limited} attempts" if rate_limited > RATE_LIMIT_RETRIES
+
           wait = RATE_LIMIT_WAIT + rand(0..15)
           Rails.logger.warn("Djen::Client 429 — backing off #{wait}s")
           @rate_limiter.throttle!(wait)

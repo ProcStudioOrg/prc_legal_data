@@ -1,7 +1,8 @@
 class CreateDjenComunicacoes < ActiveRecord::Migration[8.1]
   def change
     create_table :djen_comunicacoes do |t|
-      t.references :djen_monitoring, null: false, foreign_key: true
+      # O índice composto abaixo já cobre buscas por djen_monitoring_id.
+      t.references :djen_monitoring, null: false, foreign_key: true, index: false
       t.bigint :djen_id, null: false
       t.string :djen_hash
       t.string :numero_processo
@@ -16,7 +17,9 @@ class CreateDjenComunicacoes < ActiveRecord::Migration[8.1]
       t.timestamps
     end
 
-    add_index :djen_comunicacoes, :djen_id, unique: true
+    # Único por monitoramento, não global: a mesma comunicação pode citar dois
+    # advogados monitorados (co-patrocínio) e precisa existir para os dois.
+    add_index :djen_comunicacoes, [ :djen_monitoring_id, :djen_id ], unique: true
     add_index :djen_comunicacoes, :numero_processo
     add_index :djen_comunicacoes, :pushed_at
   end

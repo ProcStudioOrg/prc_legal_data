@@ -60,7 +60,7 @@ lawyers + djen_advogado_id bigint, indexed
   --  so we can observe whether supplementary OABs share the national id)
 ```
 
-## API (X-API-KEY auth, write ops require admin key)
+## API (X-API-KEY auth; POST aceita qualquer key ativa — o ProcStudio só tem key read; DELETE exige admin)
 
 ```
 POST   /api/v1/djen/monitorings         { "oab": "PR_54159" }

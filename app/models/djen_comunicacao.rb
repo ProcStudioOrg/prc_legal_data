@@ -6,7 +6,9 @@ class DjenComunicacao < ApplicationRecord
 
   belongs_to :djen_monitoring
 
-  validates :djen_id, presence: true, uniqueness: true
+  # Escopado ao monitoramento: co-patrocínio compartilha o mesmo djen_id entre
+  # dois advogados monitorados e cada um precisa da sua linha no ledger.
+  validates :djen_id, presence: true, uniqueness: { scope: :djen_monitoring_id }
 
   scope :pending_push, -> { where(pushed_at: nil) }
   scope :pending_cancellation_push, -> {

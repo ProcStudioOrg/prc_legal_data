@@ -1,11 +1,12 @@
 module Djen
-  # Daily sweep for one monitored lawyer. The 7-day lookback re-reads recent
+  # Daily sweep for one monitored lawyer. The 15-day lookback re-reads recent
   # days on purpose: it catches late publications and cancellations (ativo
-  # flipping to false) and covers gaps if a previous run failed.
+  # flipping to false) and covers gaps if a previous run failed. Cancelamentos
+  # fora dessa janela são risco aceito — raros na prática (ver CLAUDE.md).
   class SweepLawyerJob < ApplicationJob
     queue_as :default
 
-    DAILY_WINDOW_DAYS = 7
+    DAILY_WINDOW_DAYS = 15
 
     retry_on Djen::Client::Error, Djen::ProcstudioPusher::DeliveryError,
              wait: :polynomially_longer, attempts: 5

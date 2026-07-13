@@ -30,6 +30,26 @@ RSpec.describe "Api::V1::Djen::Monitorings", type: :request do
       expect(response).to have_http_status(:ok)
     end
 
+    it "does not enqueue a duplicate OnboardJob while onboarding is still pending" do
+      create(:djen_monitoring, lawyer: lawyer) # ativo, onboarded_at nil
+
+      expect {
+        post "/api/v1/djen/monitorings", params: { oab: "PR_54159" }, headers: headers
+      }.not_to have_enqueued_job(Djen::OnboardJob)
+
+      expect(response).to have_http_status(:ok)
+    end
+
+    it "re-enqueues onboarding when reactivating a watch that never onboarded" do
+      create(:djen_monitoring, :inactive, lawyer: lawyer)
+
+      expect {
+        post "/api/v1/djen/monitorings", params: { oab: "PR_54159" }, headers: headers
+      }.to have_enqueued_job(Djen::OnboardJob)
+
+      expect(response).to have_http_status(:ok)
+    end
+
     it "reactivates an inactive watch without re-onboarding" do
       create(:djen_monitoring, :inactive, :onboarded, lawyer: lawyer)
 

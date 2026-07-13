@@ -4,10 +4,16 @@ module Djen
   # Delivers pending intimações to ProcStudio. At-least-once: rows are only
   # stamped after a 2xx, and ProcStudio's endpoint is idempotent by djen_id,
   # so a retried lote never duplicates anything.
+  #
+  # Entrega em lotes de BATCH_SIZE: um backfill de 60 dias com `texto` completo
+  # não pode virar um único POST gigante que estoura limite de body e envenena
+  # todo retry. Cada lote é carimbado após o seu próprio 2xx, então progresso
+  # parcial sobrevive a uma falha no meio.
   class ProcstudioPusher
     DeliveryError = Class.new(StandardError)
 
     ENDPOINT_PATH = "/api/v1/integracoes/djen/intimacoes".freeze
+    BATCH_SIZE = 100
 
     def initialize(monitoring,
                    base_url: ENV["PROCSTUDIO_BASE_URL"],
@@ -23,15 +29,11 @@ module Djen
       return :nothing_to_push if novas.empty? && canceladas.empty?
 
       raise DeliveryError, "PROCSTUDIO_BASE_URL not configured" if @base_url.blank?
+      raise DeliveryError, "INTEGRATION_DJEN_TOKEN not configured" if @token.blank?
 
-      payload = LoteBuilder.new(@monitoring).call(novas: novas, canceladas: canceladas)
-      response = post(payload)
+      novas.each_slice(BATCH_SIZE) { |lote| push_lote(novas: lote, canceladas: []) }
+      canceladas.each_slice(BATCH_SIZE) { |lote| push_lote(novas: [], canceladas: lote) }
 
-      unless response.code.to_i.between?(200, 299)
-        raise DeliveryError, "ProcStudio responded #{response.code}: #{response.body&.first(200)}"
-      end
-
-      stamp(novas, canceladas)
       Rails.logger.info(
         "Djen: pushed lote to ProcStudio for #{@monitoring.lawyer.oab_id} " \
         "(novas=#{novas.size} canceladas=#{canceladas.size})"
@@ -40,6 +42,17 @@ module Djen
     end
 
     private
+
+    def push_lote(novas:, canceladas:)
+      payload = LoteBuilder.new(@monitoring).call(novas: novas, canceladas: canceladas)
+      response = post(payload)
+
+      unless response.code.to_i.between?(200, 299)
+        raise DeliveryError, "ProcStudio responded #{response.code}: #{response.body&.first(200)}"
+      end
+
+      stamp(novas, canceladas)
+    end
 
     def stamp(novas, canceladas)
       now = Time.current

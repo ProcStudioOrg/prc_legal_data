@@ -51,6 +51,28 @@ RSpec.describe Djen::ProcstudioPusher do
     expect(record.cancellation_pushed_at).to be_present
   end
 
+  it "delivers in lotes of BATCH_SIZE, stamping each after its 2xx" do
+    stub_const("Djen::ProcstudioPusher::BATCH_SIZE", 2)
+    create_list(:djen_comunicacao, 3, djen_monitoring: monitoring)
+    stub = stub_request(:post, endpoint).to_return(status: 200, body: "{}")
+
+    expect(pusher.call).to eq(:pushed)
+
+    expect(stub).to have_been_requested.times(2)
+    expect(monitoring.djen_comunicacoes.pending_push).to be_empty
+  end
+
+  it "keeps later lotes pending when an earlier lote fails" do
+    stub_const("Djen::ProcstudioPusher::BATCH_SIZE", 1)
+    create_list(:djen_comunicacao, 2, djen_monitoring: monitoring)
+    stub_request(:post, endpoint)
+      .to_return({ status: 200, body: "{}" }, { status: 500, body: "boom" })
+
+    expect { pusher.call }.to raise_error(described_class::DeliveryError)
+
+    expect(monitoring.djen_comunicacoes.pending_push.count).to eq(1)
+  end
+
   it "raises and leaves rows unstamped when ProcStudio errors" do
     nova = create(:djen_comunicacao, djen_monitoring: monitoring)
     stub_request(:post, endpoint).to_return(status: 500, body: "boom")

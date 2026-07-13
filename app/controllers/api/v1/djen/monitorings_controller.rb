@@ -13,14 +13,28 @@ module Api
         # POST /api/v1/djen/monitorings  { "oab": "PR_54159" }
         # Idempotent: re-activating an existing watch returns 200.
         def create
-          monitoring = DjenMonitoring.find_or_initialize_by(lawyer: @principal)
-          newly_created = monitoring.new_record?
+          retried = false
+          begin
+            monitoring = DjenMonitoring.find_or_initialize_by(lawyer: @principal)
+            newly_created = monitoring.new_record?
+            reactivating = !newly_created && !monitoring.active
 
-          monitoring.active = true
-          monitoring.source = params[:source].presence || monitoring.source || "procstudio"
-          monitoring.save!
+            monitoring.active = true
+            monitoring.source = params[:source].presence || monitoring.source || "procstudio"
+            monitoring.save!
+          rescue ActiveRecord::RecordNotUnique
+            # POST concorrente criou o registro primeiro; idempotência exige reusar.
+            raise if retried
 
-          ::Djen::OnboardJob.perform_later(monitoring) unless monitoring.onboarded?
+            retried = true
+            retry
+          end
+
+          # Só na criação/reativação: re-POSTs enquanto o onboarding ainda roda
+          # não podem enfileirar backfills de 60 dias em duplicata.
+          if !monitoring.onboarded? && (newly_created || reactivating)
+            ::Djen::OnboardJob.perform_later(monitoring)
+          end
 
           render json: DjenMonitoringSerializer.new(monitoring).as_json,
                  status: newly_created ? :created : :ok
@@ -55,7 +69,7 @@ module Api
         # resolves to the principal, so one person never gets two watches.
         def set_principal_lawyer
           oab = params[:oab]
-          if oab.blank?
+          unless oab.is_a?(String) && oab.present?
             render json: { error: "OAB ID obrigatório (ex: PR_54159)" }, status: :bad_request
             return
           end

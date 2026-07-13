@@ -59,6 +59,70 @@ RSpec.describe Djen::Client do
       expect(rate_limiter).to have_received(:throttle!)
     end
 
+    it "raises Error after exhausting 429 retries instead of looping forever" do
+      stub_request(:get, "#{base_url}/api/v1/comunicacao")
+        .with(query: hash_including("pagina" => "1"))
+        .to_return(status: 429)
+
+      expect {
+        client.each_comunicacao(numero_oab: "54159", uf_oab: "PR",
+                                data_inicio: Date.new(2026, 7, 1),
+                                data_fim: Date.new(2026, 7, 10)).to_a
+      }.to raise_error(Djen::Client::Error, /rate-limiting/)
+
+      expect(sleeps.size).to eq(described_class::RATE_LIMIT_RETRIES)
+    end
+
+    it "wraps invalid JSON in Client::Error" do
+      stub_request(:get, "#{base_url}/api/v1/comunicacao")
+        .with(query: hash_including("pagina" => "1"))
+        .to_return(status: 200, body: "<html>gateway</html>")
+
+      expect {
+        client.each_comunicacao(numero_oab: "54159", uf_oab: "PR",
+                                data_inicio: Date.new(2026, 7, 1),
+                                data_fim: Date.new(2026, 7, 10)).to_a
+      }.to raise_error(Djen::Client::Error, /invalid JSON/)
+    end
+
+    it "rejects a 200 whose body is not the expected object shape" do
+      stub_request(:get, "#{base_url}/api/v1/comunicacao")
+        .with(query: hash_including("pagina" => "1"))
+        .to_return(status: 200, body: "null")
+
+      expect {
+        client.each_comunicacao(numero_oab: "54159", uf_oab: "PR",
+                                data_inicio: Date.new(2026, 7, 1),
+                                data_fim: Date.new(2026, 7, 10)).to_a
+      }.to raise_error(Djen::Client::Error, /non-object body/)
+    end
+
+    it "wraps network failures in Client::Error" do
+      stub_request(:get, "#{base_url}/api/v1/comunicacao")
+        .with(query: hash_including("pagina" => "1"))
+        .to_timeout
+
+      expect {
+        client.each_comunicacao(numero_oab: "54159", uf_oab: "PR",
+                                data_inicio: Date.new(2026, 7, 1),
+                                data_fim: Date.new(2026, 7, 10)).to_a
+      }.to raise_error(Djen::Client::Error, /request failed/)
+    end
+
+    it "raises immediately on an unexpected 4xx" do
+      stub_request(:get, "#{base_url}/api/v1/comunicacao")
+        .with(query: hash_including("pagina" => "1"))
+        .to_return(status: 403, body: "forbidden")
+
+      expect {
+        client.each_comunicacao(numero_oab: "54159", uf_oab: "PR",
+                                data_inicio: Date.new(2026, 7, 1),
+                                data_fim: Date.new(2026, 7, 10)).to_a
+      }.to raise_error(Djen::Client::Error, /unexpected response 403/)
+
+      expect(sleeps).to be_empty
+    end
+
     it "raises ServerError after exhausting 5xx retries" do
       stub_request(:get, "#{base_url}/api/v1/comunicacao")
         .with(query: hash_including("pagina" => "1"))

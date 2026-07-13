@@ -35,15 +35,27 @@ module Djen
     private
 
     def upsert(item, learn_status, result)
-      record = DjenComunicacao.find_by(djen_id: item["id"])
+      record = @monitoring.djen_comunicacoes.find_by(djen_id: item["id"])
 
       if record.nil?
-        create_record(item, learn_status)
-        result.created += 1
-      elsif record.ativo && item["ativo"] == false
-        record.update!(ativo: false, raw: item)
-        result.cancelled += 1
+        begin
+          create_record(item, learn_status)
+          result.created += 1
+        rescue ActiveRecord::RecordNotUnique
+          # Job concorrente (onboard + varredura diária) inseriu primeiro.
+          record = @monitoring.djen_comunicacoes.find_by(djen_id: item["id"])
+          mark_cancelled(record, item, result)
+        end
+      else
+        mark_cancelled(record, item, result)
       end
+    end
+
+    def mark_cancelled(record, item, result)
+      return unless record&.ativo && item["ativo"] == false
+
+      record.update!(ativo: false, raw: item)
+      result.cancelled += 1
     end
 
     def create_record(item, learn_status)

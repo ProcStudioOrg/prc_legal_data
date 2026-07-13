@@ -1,11 +1,19 @@
 require 'rails_helper'
 
 RSpec.describe DjenComunicacao, type: :model do
-  it "requires a unique djen_id" do
+  it "requires a unique djen_id per monitoring" do
     existing = create(:djen_comunicacao)
-    duplicate = build(:djen_comunicacao, djen_id: existing.djen_id)
+    duplicate = build(:djen_comunicacao, djen_id: existing.djen_id,
+                                         djen_monitoring: existing.djen_monitoring)
 
     expect(duplicate).not_to be_valid
+  end
+
+  it "allows the same djen_id under another monitoring (co-patrocínio)" do
+    existing = create(:djen_comunicacao)
+    shared = build(:djen_comunicacao, djen_id: existing.djen_id)
+
+    expect(shared).to be_valid
   end
 
   describe ".pending_push" do

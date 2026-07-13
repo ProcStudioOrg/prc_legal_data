@@ -7,7 +7,7 @@
 - version: "1.2"
   date: "13/07/2026"
   note: "Monitoramento DJEN: onboarding de advogados, varredura diária e push para o ProcStudio"
-  pr:
+  pr: "https://github.com/ProcStudioOrg/prc_legal_data/pull/1"
 
 - version: "1.1"
   date: "25/04/2026"

@@ -56,6 +56,19 @@ RSpec.describe Djen::Sweep do
     expect(DjenComunicacao.pluck(:djen_id)).to contain_exactly(500, 501)
   end
 
+  it "records a shared comunicacao under both monitorings (co-patrocínio)" do
+    other_lawyer = create(:lawyer, oab_id: "SP_11111", oab_number: "11111", state: "SP")
+    other_monitoring = create(:djen_monitoring, lawyer: other_lawyer)
+    shared = djen_item("id" => 777)
+
+    sweep({ "54159/PR" => [ shared ] })
+    described_class.new(other_monitoring, window_days: 7,
+                        client: fake_client("11111/SP" => [ shared ])).call
+
+    expect(monitoring.djen_comunicacoes.where(djen_id: 777)).to exist
+    expect(other_monitoring.djen_comunicacoes.where(djen_id: 777)).to exist
+  end
+
   it "detects cancellations (ativo true -> false)" do
     sweep({ "54159/PR" => [ djen_item("id" => 111) ] })
 

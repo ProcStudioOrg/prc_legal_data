@@ -34,6 +34,16 @@ ssh "${VPS_HOST}" bash <<REMOTE
   echo "--- Running migrations ---"
   RAILS_ENV=production bin/rails db:migrate
 
+  # Solid Queue roda dentro do Puma (plugin gateado por SOLID_QUEUE_IN_PUMA).
+  grep -q '^SOLID_QUEUE_IN_PUMA=' .env || echo 'SOLID_QUEUE_IN_PUMA=1' >> .env
+
+  # db:migrate não carrega db/queue_schema.rb, e o banco "queue" é o mesmo
+  # banco físico do primário — carga manual, só no primeiro deploy.
+  if ! RAILS_ENV=production bin/rails runner 'ActiveRecord::Base.connection.table_exists?(:solid_queue_jobs) or exit 1' >/dev/null 2>&1; then
+    echo "--- Loading Solid Queue schema (first deploy) ---"
+    RAILS_ENV=production bin/rails db:schema:load:queue
+  fi
+
   echo "--- Restarting app ---"
   sudo systemctl restart ${APP_NAME}
 
@@ -54,6 +64,12 @@ ssh "${VPS_HOST}" bash <<REMOTE
     echo "ERROR: versão servida (\$live) != commit implantado (\$expected)"
     sudo journalctl -u ${APP_NAME} --no-pager -n 20
     exit 1
+  fi
+
+  # Sem worker do Solid Queue nada do DJEN roda — avisa, mas não derruba o deploy.
+  sleep 3
+  if ! RAILS_ENV=production bin/rails runner 'SolidQueue::Process.where("last_heartbeat_at > ?", 2.minutes.ago).exists? or exit 1' >/dev/null 2>&1; then
+    echo "AVISO: nenhum processo Solid Queue com heartbeat recente — jobs DJEN não vão rodar (verifique SOLID_QUEUE_IN_PUMA no .env)"
   fi
 
   echo "Deploy successful — ${APP_NAME} rodando no commit \$live"

@@ -55,8 +55,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_07_12_200003) do
     t.jsonb "raw", default: {}, null: false
     t.string "sigla_tribunal"
     t.datetime "updated_at", null: false
-    t.index ["djen_id"], name: "index_djen_comunicacoes_on_djen_id", unique: true
-    t.index ["djen_monitoring_id"], name: "index_djen_comunicacoes_on_djen_monitoring_id"
+    t.index ["djen_monitoring_id", "djen_id"], name: "index_djen_comunicacoes_on_djen_monitoring_id_and_djen_id", unique: true
     t.index ["numero_processo"], name: "index_djen_comunicacoes_on_numero_processo"
     t.index ["pushed_at"], name: "index_djen_comunicacoes_on_pushed_at"
   end

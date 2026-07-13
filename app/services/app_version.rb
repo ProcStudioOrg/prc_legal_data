@@ -26,7 +26,7 @@ class AppVersion
       @changelog ||= begin
         entries = YAML.safe_load_file(CHANGELOG_PATH) || []
         entries.map(&:symbolize_keys)
-      rescue Errno::ENOENT, Psych::SyntaxError => e
+      rescue StandardError => e
         Rails.logger.error("changelog.yml ilegível: #{e.message}")
         []
       end
@@ -52,9 +52,11 @@ class AppVersion
     end
 
     def git_head
-      `git rev-parse --short HEAD 2>/dev/null`.strip.presence
+      return @git_head if defined?(@git_head)
+
+      @git_head = `git rev-parse --short HEAD 2>/dev/null`.strip.presence
     rescue StandardError
-      nil
+      @git_head = nil
     end
   end
 end
