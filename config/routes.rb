@@ -1,7 +1,13 @@
 # config/routes.rb
 Rails.application.routes.draw do
+  # Health check (liveness para systemd/nginx)
+  get "up", to: "rails/health#show", as: :rails_health_check
+
   namespace :api do
     namespace :v1 do
+      # Versão da API — pública, sem API key
+      get "version", to: "version#show"
+
       # Rotas de advogados
       # Rota batch para scraper
       get 'lawyers', to: 'lawyers#index'

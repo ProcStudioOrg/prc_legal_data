@@ -6,6 +6,9 @@ Rails.application.configure do
   # Make code changes take effect immediately without server restart.
   config.enable_reloading = true
 
+  # Allow requests from the ProcStudio dev container (docker -> host).
+  config.hosts << "host.docker.internal"
+
   # Do not eager load code on boot.
   config.eager_load = false
 

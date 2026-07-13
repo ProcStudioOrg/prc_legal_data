@@ -75,3 +75,6 @@ HTTPS_SETUP_STATUS.md
 # SQL dumps
 *.sql.gz
 *.sql
+
+# Gravado pelo deploy no servidor (commit + data do deploy)
+/REVISION
