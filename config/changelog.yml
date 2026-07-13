@@ -1,0 +1,20 @@
+# Changelog da API — a primeira entrada é a versão atual (ordem: mais recente no topo).
+#
+# Toda PR que muda o comportamento público da API adiciona uma entrada aqui.
+# Campos: version (obrigatório), date (dd/mm/yyyy), note (pt-BR, uma linha), pr (URL ou vazio).
+# Exposto em GET /api/v1/version.
+
+- version: "1.2"
+  date: "13/07/2026"
+  note: "Monitoramento DJEN: onboarding de advogados, varredura diária e push para o ProcStudio"
+  pr: "https://github.com/ProcStudioOrg/prc_legal_data/pull/1"
+
+- version: "1.1"
+  date: "25/04/2026"
+  note: "Endpoints de CRM: consulta enxuta para o scraper, escrita aninhada e listagem com filtros JSONB"
+  pr:
+
+- version: "1.0"
+  date: "14/04/2026"
+  note: "Versão inicial: advogados (principal e suplementares), sociedades e vínculos advogado-sociedade"
+  pr:

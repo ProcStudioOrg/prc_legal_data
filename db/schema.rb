@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_03_13_123416) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_12_200003) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -41,6 +41,37 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_13_123416) do
     t.index ["requested_oab"], name: "index_api_logs_on_requested_oab"
   end
 
+  create_table "djen_comunicacoes", force: :cascade do |t|
+    t.boolean "ativo", default: true, null: false
+    t.datetime "cancellation_pushed_at"
+    t.datetime "created_at", null: false
+    t.date "data_disponibilizacao"
+    t.string "djen_hash"
+    t.bigint "djen_id", null: false
+    t.bigint "djen_monitoring_id", null: false
+    t.jsonb "labels", default: [], null: false
+    t.string "numero_processo"
+    t.datetime "pushed_at"
+    t.jsonb "raw", default: {}, null: false
+    t.string "sigla_tribunal"
+    t.datetime "updated_at", null: false
+    t.index ["djen_monitoring_id", "djen_id"], name: "index_djen_comunicacoes_on_djen_monitoring_id_and_djen_id", unique: true
+    t.index ["numero_processo"], name: "index_djen_comunicacoes_on_numero_processo"
+    t.index ["pushed_at"], name: "index_djen_comunicacoes_on_pushed_at"
+  end
+
+  create_table "djen_monitorings", force: :cascade do |t|
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "last_swept_at"
+    t.bigint "lawyer_id", null: false
+    t.datetime "onboarded_at"
+    t.string "source", default: "procstudio", null: false
+    t.datetime "updated_at", null: false
+    t.index ["active"], name: "index_djen_monitorings_on_active"
+    t.index ["lawyer_id"], name: "index_djen_monitorings_on_lawyer_id", unique: true
+  end
+
   create_table "lawyer_societies", force: :cascade do |t|
     t.string "cna_link"
     t.datetime "created_at", null: false
@@ -61,6 +92,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_13_123416) do
     t.datetime "created_at", null: false
     t.jsonb "crm_data", default: {}, null: false
     t.string "detail_url"
+    t.bigint "djen_advogado_id"
     t.string "email"
     t.string "folder_id"
     t.string "full_name"
@@ -88,6 +120,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_13_123416) do
     t.string "zip_address"
     t.string "zip_code"
     t.index ["crm_data"], name: "index_lawyers_on_crm_data", using: :gin
+    t.index ["djen_advogado_id"], name: "index_lawyers_on_djen_advogado_id"
     t.index ["full_name"], name: "index_lawyers_on_full_name"
     t.index ["has_society"], name: "index_lawyers_on_has_society"
     t.index ["oab_id"], name: "index_lawyers_on_oab_id", unique: true
@@ -121,6 +154,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_03_13_123416) do
   end
 
   add_foreign_key "api_keys", "users"
+  add_foreign_key "djen_comunicacoes", "djen_monitorings"
+  add_foreign_key "djen_monitorings", "lawyers"
   add_foreign_key "lawyer_societies", "lawyers"
   add_foreign_key "lawyer_societies", "societies"
   add_foreign_key "lawyers", "lawyers", column: "principal_lawyer_id"

@@ -1,10 +1,15 @@
-# production:
-#   periodic_cleanup:
-#     class: CleanSoftDeletedRecordsJob
-#     queue: background
-#     args: [ 1000, { batch_size: 500 } ]
-#     schedule: every hour
-#   periodic_command:
-#     command: "SoftDeletedRecord.due.delete_all"
-#     priority: 2
-#     schedule: at 5am every day
+# Solid Queue recurring tasks.
+#
+# djen_daily_sweep fans out one Djen::SweepLawyerJob per active monitoring,
+# staggered by DJEN_SWEEP_STAGGER_SECONDS to respect the DJEN rate limit.
+production:
+  djen_daily_sweep:
+    class: Djen::DailySweepJob
+    queue: default
+    schedule: at 6am every day
+
+development:
+  djen_daily_sweep:
+    class: Djen::DailySweepJob
+    queue: default
+    schedule: at 6am every day
