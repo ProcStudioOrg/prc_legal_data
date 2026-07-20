@@ -3,6 +3,7 @@ module Api
   module V1
     class LawyersController < ApplicationController
       include ApiAuthentication
+      include UsageTracking
 
       before_action :authorize_write!, only: [ :create_lawyer, :update_lawyer, :update_crm ]
       before_action :set_lawyer, only: [ :_debug, :update_lawyer, :update_crm, :show_crm ]

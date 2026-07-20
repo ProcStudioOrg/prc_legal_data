@@ -2,14 +2,25 @@
 #
 # djen_daily_sweep fans out one Djen::SweepLawyerJob per active monitoring,
 # staggered by DJEN_SWEEP_STAGGER_SECONDS to respect the DJEN rate limit.
+#
+# usage_daily_report aggregates yesterday's UsageEvents (America/Sao_Paulo)
+# and POSTs the daily usage report to USAGE_WEBHOOK_URL.
 production:
   djen_daily_sweep:
     class: Djen::DailySweepJob
     queue: default
     schedule: at 6am every day
+  usage_daily_report:
+    class: UsageReportJob
+    queue: default
+    schedule: at 00:05 every day America/Sao_Paulo
 
 development:
   djen_daily_sweep:
     class: Djen::DailySweepJob
     queue: default
     schedule: at 6am every day
+  usage_daily_report:
+    class: UsageReportJob
+    queue: default
+    schedule: at 00:05 every day America/Sao_Paulo

@@ -88,7 +88,9 @@ RSpec.describe "GET /api/v1/lawyer/:oab/crm", type: :request do
       # Baseline after fix: ~20 queries (api_key auth + set_lawyer + two eager base_relation
       # fetches covering supplementary_lawyers, principal_lawyer, lawyer_societies,
       # societies, nested lawyer_societies+lawyers, and partners' supplementary_lawyers).
-      expect(query_count).to be < 23
+      # +3 fixed-cost queries from UsageTracking's after_action (BEGIN/INSERT/COMMIT) —
+      # constant per request, so the N+1 guard still holds.
+      expect(query_count).to be < 26
       expect(response).to have_http_status(:ok)
     end
   end

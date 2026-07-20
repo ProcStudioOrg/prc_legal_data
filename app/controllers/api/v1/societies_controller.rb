@@ -3,6 +3,7 @@ module Api
   module V1
     class SocietiesController < ApplicationController
       include ApiAuthentication
+      include UsageTracking
 
       before_action :authorize_write!, only: [ :create_society, :update_society, :destroy ]
       before_action :set_society, only: [:show, :update_society, :destroy]

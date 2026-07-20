@@ -3,6 +3,7 @@ module Api
   module V1
     class LawyerSocietiesController < ApplicationController
       include ApiAuthentication
+      include UsageTracking
 
       before_action :authorize_write!, only: [ :create, :update, :destroy ]
       before_action :set_lawyer_society, only: [:show, :update, :destroy]
