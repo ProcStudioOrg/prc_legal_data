@@ -7,8 +7,15 @@ class LawyerSociety < ApplicationRecord
   validates :lawyer_id, uniqueness: { scope: :society_id }
   validates :partnership_type, presence: true
 
-  # Custom validation to ensure society capacity isn't exceeded
-  validate :society_has_capacity, on: :create
+  # NÃO existe mais portão de capacidade.
+  #
+  # `Society#number_of_partners` vem do CNA e é o retrato do quadro societário
+  # na data do scrape, não um limite jurídico — nada impede uma banca de admitir
+  # sócios depois. A validação antiga (`society_has_capacity`) era andaime do
+  # scraper inicial e passou a rejeitar dado verdadeiro: no lote OAB-MG de
+  # 2026-08 ela barraria 584 vínculos reais em 289 sociedades, 160 delas já
+  # "cheias" antes do lote começar. O teto agora só é informativo e é reajustado
+  # por `Society#sync_number_of_partners!`.
 
   # Callbacks
   after_destroy :destroy_orphan_society
@@ -21,16 +28,6 @@ class LawyerSociety < ApplicationRecord
   }
 
   private
-
-  def society_has_capacity
-    return unless society
-
-    unless society.can_add_lawyer?
-      errors.add(:society,
-        "is at full capacity (#{society.number_of_partners} lawyers maximum). " \
-        "Currently has #{society.lawyers.count} lawyers.")
-    end
-  end
 
   # Auto-delete society when the last member association is removed
   def destroy_orphan_society

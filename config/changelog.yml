@@ -4,6 +4,11 @@
 # Campos: version (obrigatório), date (dd/mm/yyyy), note (pt-BR, uma linha), pr (URL ou vazio).
 # Exposto em GET /api/v1/version.
 
+- version: "1.4"
+  date: "02/08/2026"
+  note: "Lote OAB-MG: 44.525 advogados novos (teto 206.778 → 251.706), sociedades sem inscrição chaveadas por MG_<ordem>_SOCIEDADE, campos email/website/cnpj e fim do limite de sócios"
+  pr:
+
 - version: "1.3"
   date: "20/07/2026"
   note: "Observabilidade de uso: registro de consultas por API key (IP hasheado) e relatório diário via webhook"

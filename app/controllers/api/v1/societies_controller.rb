@@ -139,16 +139,26 @@ module Api
       # --- Private methods ---
       private
 
+      # O parâmetro aceita os dois identificadores: a inscrição OAB (numérica,
+      # origem CNA) e o oab_id no formato MG_206787_SOCIEDADE, que é a chave das
+      # sociedades vindas do portal da OAB-MG — elas não têm inscrição.
       def set_society
-        inscricao = params[:inscricao]
-        @society = Society.find_by(inscricao: inscricao) if inscricao.present?
+        key = params[:inscricao]
+        return if key.blank?
+
+        @society = if key.to_s.match?(/\A\d+\z/)
+                     Society.find_by(inscricao: key)
+                   else
+                     Society.from_oab_portal.find_by(oab_id: key)
+                   end
       end
 
       # Strong parameters for society creation
       def society_create_params
         params.permit(
           :inscricao, :name, :state, :oab_id, :address, :zip_code, :city,
-          :phone, :phone_number_2, :number_of_partners, :situacao, :society_link
+          :phone, :phone_number_2, :number_of_partners, :situacao, :society_link,
+          :email, :website, :cnpj, :source
         )
       end
 
@@ -156,7 +166,8 @@ module Api
       def society_update_params
         params.permit(
           :name, :state, :oab_id, :address, :zip_code, :city,
-          :phone, :phone_number_2, :number_of_partners, :situacao, :society_link
+          :phone, :phone_number_2, :number_of_partners, :situacao, :society_link,
+          :email, :website, :cnpj, :source
         )
       end
     end

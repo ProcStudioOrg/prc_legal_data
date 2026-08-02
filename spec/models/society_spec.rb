@@ -29,6 +29,41 @@ RSpec.describe Society, type: :model do
     end
   end
 
+  # A aba "Sociedade de Advogados" do portal da OAB-MG não expõe inscrição
+  # nenhuma — só nome, endereço, CEP, telefone, e-mail e site. Essas sociedades
+  # são identificadas pelo advogado que as revelou.
+  describe 'sociedade vinda do portal da OAB (sem inscrição)' do
+    let(:portal_attrs) do
+      { inscricao: nil, source: Society::OAB_PORTAL, oab_id: 'MG_206787_SOCIEDADE',
+        state: 'MG', name: 'DANUBIA ROSARIO - SOCIEDADE INDIVIDUAL DE ADVOCACIA',
+        number_of_partners: 1 }
+    end
+
+    it 'é válida sem inscrição quando a origem é o portal' do
+      expect(build(:society, **portal_attrs)).to be_valid
+    end
+
+    it 'exige oab_id, que é a chave dessas linhas' do
+      expect(build(:society, **portal_attrs, oab_id: nil)).not_to be_valid
+    end
+
+    it 'segue exigindo inscrição para o que vem do CNA' do
+      expect(build(:society, inscricao: nil, source: 'cna')).not_to be_valid
+    end
+
+    it 'permite várias sociedades do portal sem inscrição (nil não colide)' do
+      create(:society, **portal_attrs)
+      outra = build(:society, **portal_attrs, oab_id: 'MG_206788_SOCIEDADE', name: 'OUTRA')
+      expect(outra).to be_valid
+    end
+
+    it 'aparece no escopo from_oab_portal' do
+      portal = create(:society, **portal_attrs)
+      create(:society, inscricao: 999_111, source: 'cna')
+      expect(Society.from_oab_portal).to contain_exactly(portal)
+    end
+  end
+
   describe 'associations' do
     it 'has many lawyer_societies' do
       society = create(:society, :with_lawyers, number_of_partners: 2, lawyers_count: 2)
@@ -74,9 +109,12 @@ RSpec.describe Society, type: :model do
       expect(society.can_add_lawyer?).to be true
     end
 
-    it 'returns false when society is at capacity' do
+    # Deixou de ser portão: sempre aceita. `at_capacity?`/`remaining_spots`
+    # seguem informativos e continuam sendo servidos pelo SocietySerializer.
+    it 'continua true mesmo com a sociedade lotada' do
       society = create(:society, :with_lawyer, number_of_partners: 1)
-      expect(society.can_add_lawyer?).to be false
+      expect(society.can_add_lawyer?).to be true
+      expect(society.at_capacity?).to be true
     end
   end
 

@@ -46,14 +46,25 @@ RSpec.describe LawyerSociety, type: :model do
     end
   end
 
-  describe 'capacity validation' do
-    it 'prevents adding lawyer when society is at capacity' do
+  describe 'capacidade' do
+    # O portão de capacidade foi removido: `number_of_partners` vem do CNA e é o
+    # retrato do quadro societário na data do scrape, não um limite jurídico.
+    # Ele rejeitava dado verdadeiro — 584 vínculos reais no lote OAB-MG 2026-08.
+    it 'admite sócio acima do number_of_partners registrado' do
       society = create(:society, :with_lawyer, number_of_partners: 1)
       new_lawyer = create(:lawyer)
 
       ls = build(:lawyer_society, lawyer: new_lawyer, society: society)
-      expect(ls).not_to be_valid
-      expect(ls.errors[:society]).to include(a_string_matching(/at full capacity/))
+      expect(ls).to be_valid
+      expect(ls.save).to be true
+    end
+
+    it 'reajusta o teto informativo quando a realidade o ultrapassa' do
+      society = create(:society, :with_lawyer, number_of_partners: 1)
+      create(:lawyer_society, lawyer: create(:lawyer), society: society)
+
+      expect { society.sync_number_of_partners! }
+        .to change { society.reload.number_of_partners }.from(1).to(2)
     end
   end
 
