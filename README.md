@@ -186,8 +186,24 @@ Any OAB in a lawyer's cluster (principal **or** supplementary) resolves to the p
 GET    /api/v1/society/:inscricao        # Lookup by inscricao
 POST   /api/v1/society/create            # Create society (admin only)
 POST   /api/v1/society/:inscricao/update # Update society (admin only)
+POST   /api/v1/society/:inscricao/crm    # Write CRM data (admin only)
 DELETE /api/v1/society/:inscricao        # Delete society (admin only)
 ```
+
+**Two identifiers, one param.** The `:inscricao` segment accepts either the OAB
+registration number (numeric, sourced from the CNA) or the `oab_id` in the
+`MG_<ordem>_SOCIEDADE` form. Societies discovered through the OAB-MG portal have
+no registration number — the portal does not expose it — so they are reached by
+`oab_id`.
+
+**CRM.** Societies carry the same `crm_data` JSONB column as lawyers, and
+`POST /api/v1/society/:inscricao/crm` behaves exactly like its lawyer counterpart:
+nested `scraper` / `outreach` / `signals` hashes are deep-merged, so a partial
+write never clobbers untouched keys.
+
+`crm_data` is deliberately separate from `cnpja_data`. The latter holds the raw
+Receita Federal payload and is overwritten on every CNPJA sync; keeping prospecting
+state out of it means a sync never erases contact history.
 
 ### Lawyer-Society Relationship Endpoints
 

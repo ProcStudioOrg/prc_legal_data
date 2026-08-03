@@ -7,7 +7,7 @@ module Api
       include CrmParams
 
       before_action :authorize_write!, only: [ :create_society, :update_society, :update_crm, :destroy ]
-      before_action :set_society, only: [:show, :update_society, :update_crm, :destroy]
+      before_action :set_society, only: [ :show, :update_society, :update_crm, :destroy ]
 
       # --- Create society action ---
       def create_society
