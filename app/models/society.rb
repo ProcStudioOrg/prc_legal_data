@@ -5,6 +5,23 @@ class Society < ApplicationRecord
 
   OAB_PORTAL = 'oab_portal'
 
+  # Campos de CRM dentro do jsonb `crm_data`. Espelha o `Lawyer`, menos
+  # `trial_active` — atuação processual é fato da pessoa física, não da banca.
+  #
+  # NÃO confundir com `cnpja_data`: aquele guarda o payload cru da Receita e é
+  # sobrescrito a cada sync do EnrichSocietyJob. Este é estado de prospecção
+  # nosso e sobrevive ao sync.
+  store_accessor :crm_data,
+    :researched,              # boolean - a sociedade já foi pesquisada?
+    :last_research_date,      # date string - quando foi a última pesquisa?
+    :tried_procstudio,        # boolean - já tentamos contato para o Procstudio?
+    :mail_marketing,          # boolean - está na lista de mail marketing?
+    :mail_marketing_origin,   # array - de onde veio o e-mail? ["oab", "site", "manual"]
+    :contacted,               # boolean - já foi contatada?
+    :contacted_by,            # string - quem contatou?
+    :contacted_when,          # date string - quando foi contatada?
+    :contact_notes            # string - notas sobre o contato
+
   # Validations
   #
   # `inscricao` é o número OAB da sociedade e continua obrigatório para tudo que

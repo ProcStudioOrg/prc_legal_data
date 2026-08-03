@@ -11,6 +11,18 @@ FactoryBot.define do
     number_of_partners { 3 }
     situacao { "Ativo" }
 
+    trait :with_crm do
+      crm_data { { "researched" => true, "scraper" => { "sources" => ["site"] } } }
+    end
+
+    # Sociedade descoberta no portal da OAB-MG: não tem inscrição, a chave é o oab_id.
+    trait :from_portal do
+      source { Society::OAB_PORTAL }
+      inscricao { nil }
+      state { "MG" }
+      sequence(:oab_id) { |n| "MG_#{200000 + n}_SOCIEDADE" }
+    end
+
     trait :with_lawyer do
       after(:create) do |society|
         lawyer = create(:lawyer)

@@ -24,6 +24,7 @@ Rails.application.routes.draw do
       post 'society/create', to: 'societies#create_society'
       get 'society/:inscricao', to: 'societies#show'
       post 'society/:inscricao/update', to: 'societies#update_society'
+      post 'society/:inscricao/crm', to: 'societies#update_crm'
       delete 'society/:inscricao', to: 'societies#destroy'
 
       # Rotas de relações advogado-sociedade

@@ -4,6 +4,7 @@ module Api
     class LawyersController < ApplicationController
       include ApiAuthentication
       include UsageTracking
+      include CrmParams
 
       before_action :authorize_write!, only: [ :create_lawyer, :update_lawyer, :update_crm ]
       before_action :set_lawyer, only: [ :_debug, :update_lawyer, :update_crm, :show_crm ]
@@ -472,11 +473,7 @@ module Api
         ).to_h
 
         # Free-form deep-permit for AI-driven sub-hashes.
-        %i[scraper outreach signals].each do |key|
-          raw = params[key]
-          next if raw.blank?
-          crm_params[key.to_s] = deep_permit_hash(raw)
-        end
+        merge_freeform_crm_keys(crm_params)
 
         if crm_params.empty?
           render json: { error: "Nenhum parâmetro CRM fornecido" }, status: :bad_request
@@ -625,24 +622,6 @@ module Api
       def set_lawyer
         oab = params[:oab]
         @lawyer = Lawyer.find_by(oab_id: oab) if oab.present?
-      end
-
-      # Recursively converts ActionController::Parameters (and nested hashes/arrays)
-      # into a plain Ruby hash with stringified keys. Used to allow free-form
-      # sub-hashes under the :scraper, :outreach, and :signals namespaces without
-      # opening up arbitrary root-level params — the whitelist boundary is the
-      # explicit %i[scraper outreach signals] list in update_crm.
-      def deep_permit_hash(value)
-        case value
-        when ActionController::Parameters
-          value.to_unsafe_h.transform_values { |v| deep_permit_hash(v) }.deep_stringify_keys
-        when Hash
-          value.transform_values { |v| deep_permit_hash(v) }.deep_stringify_keys
-        when Array
-          value.map { |v| deep_permit_hash(v) }
-        else
-          value
-        end
       end
 
       # Strong parameters for lawyer updates

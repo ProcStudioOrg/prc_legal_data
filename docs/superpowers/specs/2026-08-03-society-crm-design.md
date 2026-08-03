@@ -24,9 +24,10 @@ O commit `005b17a` (lote OAB-MG) já entregou parte do que parecia faltar:
 | `:email` etc. nos strong params de create/update | ✅ existe |
 | `SocietySerializer` expondo `email`/`website`/`source`/`cnpj` | ✅ existe |
 | `societies.cnpja_data` (jsonb) | ✅ existe |
+| Entrada `1.4` no `config/changelog.yml` | ✅ existe |
 | `societies.crm_data` (jsonb) | ❌ este spec |
 | `POST /society/:inscricao/crm` | ❌ este spec |
-| Entrada no `config/changelog.yml` | ❌ este spec (cobre também a dívida de `005b17a`) |
+| Entrada `1.5` no `config/changelog.yml` | ❌ este spec |
 
 ## Decisão central: `crm_data` ≠ `cnpja_data`
 
@@ -135,12 +136,11 @@ consumidor não precisar distinguir "ausente" de "vazio".
 
 ## Changelog
 
-Uma entrada minor `1.4` no topo de `config/changelog.yml`, cobrindo **tudo** que
-passou a vazar para a API pública nesta branch:
+Uma entrada minor `1.5` no topo de `config/changelog.yml`, cobrindo `crm_data` no
+payload da sociedade e o `POST /society/:inscricao/crm`.
 
-- `crm_data` em sociedades + `POST /society/:inscricao/crm` (este spec)
-- `email`, `website`, `source`, `cnpj` no payload de sociedade (dívida de `005b17a`)
-- `society/:inscricao` aceitando `oab_id` de sociedade do portal MG (dívida de `005b17a`)
+O commit `005b17a` já registrou a `1.4` para os campos `email`/`website`/`cnpj` e o
+chaveamento `MG_<ordem>_SOCIEDADE` — não há dívida de changelog pendente.
 
 ## Testes
 

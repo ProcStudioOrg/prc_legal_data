@@ -4,9 +4,10 @@ module Api
     class SocietiesController < ApplicationController
       include ApiAuthentication
       include UsageTracking
+      include CrmParams
 
-      before_action :authorize_write!, only: [ :create_society, :update_society, :destroy ]
-      before_action :set_society, only: [:show, :update_society, :destroy]
+      before_action :authorize_write!, only: [ :create_society, :update_society, :update_crm, :destroy ]
+      before_action :set_society, only: [:show, :update_society, :update_crm, :destroy]
 
       # --- Create society action ---
       def create_society
@@ -95,6 +96,59 @@ module Api
         rescue => e
           Rails.logger.error("Error updating society #{@society.id}: #{e.message}")
           render json: { error: "Erro interno ao atualizar sociedade" }, status: :internal_server_error
+        end
+      end
+
+      # --- Update CRM data action ---
+      #
+      # Espelha LawyersController#update_crm: grava no jsonb `crm_data` com
+      # deep-merge, aceitando os sub-hashes livres :scraper, :outreach e :signals
+      # produzidos pelo scraper de IA.
+      def update_crm
+        unless @society
+          render json: { error: "Sociedade não encontrada" }, status: :not_found
+          return
+        end
+
+        crm_params = params.permit(
+          :researched, :last_research_date,
+          :tried_procstudio, :mail_marketing, :contacted,
+          :contacted_by, :contacted_when, :contact_notes,
+          mail_marketing_origin: []
+        ).to_h
+
+        # Free-form deep-permit for AI-driven sub-hashes.
+        merge_freeform_crm_keys(crm_params)
+
+        if crm_params.empty?
+          render json: { error: "Nenhum parâmetro CRM fornecido" }, status: :bad_request
+          return
+        end
+
+        begin
+          current_crm = @society.crm_data || {}
+          new_crm = current_crm.deep_merge(crm_params.compact)
+
+          if @society.update(crm_data: new_crm)
+            render json: {
+              message: "Dados CRM atualizados com sucesso",
+              inscricao: @society.inscricao,
+              oab_id: @society.oab_id,
+              crm_data: @society.crm_data
+            }, status: :ok
+          else
+            render json: {
+              error: "Erro ao atualizar dados CRM",
+              details: @society.errors.full_messages
+            }, status: :unprocessable_entity
+          end
+        rescue => e
+          Rails.logger.error("Error updating CRM for society #{@society.id}: #{e.message}")
+          error_details = Rails.env.production? ? nil : { message: e.message, backtrace: e.backtrace&.first(5) }
+          render json: {
+            error: "Erro interno ao atualizar dados CRM",
+            details: error_details
+          }, status: :internal_server_error
         end
       end
 

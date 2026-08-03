@@ -35,6 +35,7 @@ class SocietySerializer
       source: @society.source,
       cnpj: @society.cnpj,
       situacao: @society.situacao,
+      crm_data: @society.crm_data || {},
       number_of_partners: @society.number_of_partners,
       society_link: @society.society_link,
       created_at: @society.created_at,

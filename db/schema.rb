@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_02_000002) do
+ActiveRecord::Schema[8.1].define(version: 2026_08_03_000001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
   enable_extension "unaccent"
@@ -139,6 +139,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_02_000002) do
     t.datetime "cnpja_synced_at"
     t.datetime "cnpja_updated_at"
     t.datetime "created_at", null: false
+    t.jsonb "crm_data", default: {}, null: false
     t.string "email"
     t.integer "inscricao"
     t.string "name"
@@ -154,6 +155,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_02_000002) do
     t.string "website"
     t.string "zip_code"
     t.index ["cnpj"], name: "index_societies_on_cnpj", unique: true, where: "(cnpj IS NOT NULL)"
+    t.index ["crm_data"], name: "index_societies_on_crm_data", using: :gin
     t.index ["oab_id"], name: "index_societies_on_oab_id_portal", unique: true, where: "((source)::text = 'oab_portal'::text)"
     t.index ["source"], name: "index_societies_on_source"
     t.index ["state", "name"], name: "index_societies_on_state_and_name"
