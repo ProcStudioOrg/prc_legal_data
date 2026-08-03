@@ -6,14 +6,21 @@
 #   bundle exec rake cnpja:match_mg LIMIT=10 DRY_RUN=true
 #   bundle exec rake cnpja:match_mg LIMIT=10
 #
-# ORÇAMENTO: 1 crédito = 1 CNPJ retornado. Uma busca com PAGE_LIMIT=5 pode
-# custar até 5 créditos. Com 711 créditos e 3.242 sociedades novas em MG, NÃO dá
-# para varrer tudo — rode em lotes pequenos e confira o painel entre eles.
+# ORÇAMENTO: 1 crédito = 1 CNPJ retornado, e com 711 créditos para 3.242
+# sociedades NÃO dá para varrer tudo.
+#
+# Por isso PAGE_LIMIT=1. Quando o nome exato não existe na UF, o `names.in` do
+# CNPJA degrada e devolve firmas sem relação nenhuma — buscar "ALMEIDA,
+# ROTENBERG E BOSCOLI" em MG trouxe PINTO & SOARES, BITES e FERREIRA E CHAGAS —
+# e paga-se por cada linha de lixo. Como o resultado certo vem em primeiro
+# quando existe (conferido contra dois CNPJs conhecidos), subir o limite só
+# multiplica o custo do erro: com 1, um erro custa 1 crédito e o orçamento
+# cobre ~3x mais sociedades.
 namespace :cnpja do
   desc 'Casa sociedades MG do portal da OAB com o CNPJA (lote pequeno, orçado)'
   task match_mg: :environment do
     limit = Integer(ENV.fetch('LIMIT', '10'))
-    page_limit = Integer(ENV.fetch('PAGE_LIMIT', '5'))
+    page_limit = Integer(ENV.fetch('PAGE_LIMIT', '1'))
     # Teto de crédito REAL do lote. A task para sozinha ao alcançá-lo, mesmo
     # que ainda haja sociedades na fila.
     budget = Integer(ENV.fetch('BUDGET', '700'))

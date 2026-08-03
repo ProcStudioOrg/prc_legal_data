@@ -36,12 +36,20 @@ module Cnpja
 
     # Busca por nome, restrita a advocacia e à UF. `limit` é o teto de crédito
     # gasto nesta chamada.
+    # NÃO filtrar por `head.eq=true`. Combinado com `address.state.in`, ele
+    # descarta exatamente o caso das bancas nacionais: a matriz da ALMEIDA,
+    # ROTENBERG E BOSCOLI é em SP, então "matriz E em MG" não existe e o
+    # escritório mineiro (filial) some junto. O que se queria evitar era filial
+    # BAIXADA (caso DANIELA HUDSON no dry run) — para isso serve o filtro de
+    # situação cadastral, que é preciso e não custa cobertura.
+    STATUS_ATIVA = 2
+
     def search_by_name(name, uf:, limit: 5)
       get('/office', {
             'mainActivity.id.in' => CNAE_ADVOCACIA,
             'address.state.in' => uf,
+            'status.id.in' => STATUS_ATIVA,
             'names.in' => name,
-            'head.eq' => 'true', # só matriz; filial baixada polui o match
             'limit' => limit
           })
     end
