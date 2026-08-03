@@ -36,8 +36,8 @@ jobs:
       - name: Instalar Ruby
         uses: ruby/setup-ruby@v1
         with:
-          # Lê o .ruby-version — não duplicar a versão aqui.
-          ruby-version-file: .ruby-version
+          # Sem `ruby-version`: o setup-ruby lê o .ruby-version sozinho
+          # (confirmado no run 30836931096: "Using 3.4.7 as input from file").
           bundler-cache: true
 
       - name: Preparar banco de teste
@@ -55,7 +55,7 @@ jobs:
       - name: Instalar Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version-file: .ruby-version
+          # Idem: versão vem do .ruby-version.
           bundler-cache: true
 
       # O legado (726 ofensas) está congelado em .rubocop_todo.yml. Este passo
