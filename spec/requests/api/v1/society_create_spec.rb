@@ -2,7 +2,7 @@ require 'rails_helper'
 
 RSpec.describe "Api::V1::Societies", type: :request do
   let(:user) { User.create(email: "test@example.com", password: "password", admin: false) }
-  let(:api_key) { ApiKey.create(user: user, key: "test_key", active: true) }
+  let(:api_key) { ApiKey.create!(user: user, active: true, role: "admin") }
   let(:headers) { { "X-API-KEY" => api_key.key } }
 
   describe "POST /api/v1/society/create" do
@@ -30,7 +30,8 @@ RSpec.describe "Api::V1::Societies", type: :request do
         json_response = JSON.parse(response.body)
         expect(json_response["message"]).to eq("Sociedade criada com sucesso")
         expect(json_response["society"]["name"]).to eq("Smith & Associates")
-        expect(json_response["society"]["inscricao"]).to eq("12345")
+        # `inscricao` é integer na tabela, então o JSON traz número, não string.
+        expect(json_response["society"]["inscricao"]).to eq(12345)
         expect(json_response["society"]["oab_id"]).to eq("SP_SOC_12345")
       end
     end

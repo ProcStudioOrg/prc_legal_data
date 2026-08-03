@@ -2,7 +2,7 @@ require 'rails_helper'
 
 RSpec.describe "Api::V1::LawyerSocieties", type: :request do
   let(:user) { User.create(email: "test@example.com", password: "password", admin: false) }
-  let(:api_key) { ApiKey.create(user: user, key: "test_key", active: true) }
+  let(:api_key) { ApiKey.create!(user: user, active: true, role: "admin") }
   let(:headers) { { "X-API-KEY" => api_key.key } }
 
   let(:lawyer) {
@@ -47,12 +47,13 @@ RSpec.describe "Api::V1::LawyerSocieties", type: :request do
         expect(json_response["message"]).to eq("Relação entre advogado e sociedade criada com sucesso")
         expect(json_response["lawyer_society"]["lawyer_id"]).to eq(lawyer.id)
         expect(json_response["lawyer_society"]["society_id"]).to eq(society.id)
-        expect(json_response["lawyer_society"]["partnership_type"]).to eq("Sócio")
+        expect(json_response["lawyer_society"]["partnership_type"]).to eq("socio")
 
         # Check that lawyer's has_society field was updated
         lawyer.reload
         expect(lawyer.has_society).to be true
-        expect(lawyer.society_id).to eq(society.id)
+        # Lawyer não tem coluna society_id — o vínculo é has_many :through.
+        expect(lawyer.societies).to include(society)
       end
     end
 
@@ -168,17 +169,18 @@ RSpec.describe "Api::V1::LawyerSocieties", type: :request do
         )
       end
 
-      it "returns unprocessable_entity when society is at capacity" do
+      # O portão de capacidade foi removido: `number_of_partners` vem do CNA e é
+      # o retrato do quadro societário na data do scrape, não um limite
+      # jurídico. Ele rejeitava dado verdadeiro — 584 vínculos reais no lote
+      # OAB-MG de 2026-08.
+      it "aceita sócio acima do number_of_partners registrado" do
         attributes = valid_attributes.merge(society_id: full_society.id)
 
         expect {
           post "/api/v1/lawyer_societies", params: attributes, headers: headers
-        }.not_to change(LawyerSociety, :count)
+        }.to change(LawyerSociety, :count).by(1)
 
-        expect(response).to have_http_status(:unprocessable_entity)
-        json_response = JSON.parse(response.body)
-        expect(json_response["error"]).to include("Erro ao criar relação")
-        expect(json_response["details"].first).to include("full capacity")
+        expect(response).to have_http_status(:created)
       end
     end
 
@@ -200,7 +202,7 @@ RSpec.describe "Api::V1::LawyerSocieties", type: :request do
         society_id: society.id,
         partnership_type: "Sócio"
       )
-      lawyer.update(has_society: true, society_id: society.id)
+      lawyer.update(has_society: true)
       ls
     }
 
@@ -216,7 +218,6 @@ RSpec.describe "Api::V1::LawyerSocieties", type: :request do
       # Check that lawyer's has_society field was updated
       lawyer.reload
       expect(lawyer.has_society).to be false
-      expect(lawyer.society_id).to be_nil
     end
 
     it "returns not found for non-existent relationship" do
@@ -275,7 +276,8 @@ RSpec.describe "Api::V1::LawyerSocieties", type: :request do
       expect(json_response["message"]).to include("atualizada com sucesso")
 
       lawyer_society.reload
-      expect(lawyer_society.partnership_type).to eq("Associado")
+      expect(lawyer_society.partnership_type).to eq("associado")
+      expect(lawyer_society.partnership_type_before_type_cast).to eq("Associado")
       expect(lawyer_society.cna_link).to eq("https://updated-link.com")
     end
 

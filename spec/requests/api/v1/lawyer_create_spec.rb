@@ -2,7 +2,7 @@ require 'rails_helper'
 
 RSpec.describe "Api::V1::Lawyers", type: :request do
   let(:user) { User.create(email: "test@example.com", password: "password", admin: false) }
-  let(:api_key) { ApiKey.create(user: user, key: "test_key", active: true) }
+  let(:api_key) { ApiKey.create!(user: user, active: true, role: "admin") }
   let(:headers) { { "X-API-KEY" => api_key.key } }
 
   describe "POST /api/v1/lawyer/create" do
@@ -11,6 +11,12 @@ RSpec.describe "Api::V1::Lawyers", type: :request do
         full_name: "John Doe",
         oab_number: "123456",
         state: "SP",
+        # O endpoint EXIGE oab_id, não o deriva de state + oab_number (ver
+        # create_lawyer). Quem chama é o scraper, que já monta a chave
+        # (ScraperDataMapper#lawyer_record). O spec original omitia o campo e
+        # por isso nunca passou — nasceu contraditório com o controller no
+        # mesmo commit.
+        oab_id: "SP_123456",
         city: "São Paulo",
         address: "Av. Paulista, 1000",
         zip_code: "01310-100",

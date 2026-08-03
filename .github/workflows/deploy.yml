@@ -1,12 +1,18 @@
 name: Deploy to VPS
 
+# NÃO dispara direto no push: espera o workflow CI terminar em main e só segue
+# se ele passou. Antes disto o deploy ia para produção sem nada rodar teste —
+# foi assim que 27 falhas se acumularam sem ninguém ver.
 on:
-  push:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
     branches: [main]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1
