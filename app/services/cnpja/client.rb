@@ -22,9 +22,16 @@ module Cnpja
     class RateLimited < StandardError; end
     class Error < StandardError; end
 
+    # Créditos gastos nesta instância. 1 crédito = 1 CNPJ devolvido, então o
+    # contador soma os registros de cada resposta — é o gasto REAL, não o teto
+    # do `limit`. Sem isso o orçamento vira chute: uma busca com limit=3 que
+    # devolve 1 registro custa 1, não 3.
+    attr_reader :credits_used
+
     def initialize(token: ENV.fetch('CNPJA'), logger: Rails.logger)
       @token = token
       @logger = logger
+      @credits_used = 0
     end
 
     # Busca por nome, restrita a advocacia e à UF. `limit` é o teto de crédito
@@ -56,7 +63,10 @@ module Cnpja
       begin
         response = perform(uri)
         case response.code.to_i
-        when 200 then JSON.parse(response.body)
+        when 200
+          body = JSON.parse(response.body)
+          @credits_used += count_records(body)
+          body
         when 429
           raise RateLimited, "429 em #{path}"
         else
@@ -71,6 +81,15 @@ module Cnpja
         attempt += 1
         retry
       end
+    end
+
+    # /office?<filtros> devolve {"records": [...]}; /office/{cnpj} devolve um
+    # objeto só. Nos dois casos o custo é o número de CNPJs que voltaram.
+    def count_records(body)
+      return body['records'].size if body.is_a?(Hash) && body['records'].is_a?(Array)
+      return body.size if body.is_a?(Array)
+
+      1
     end
 
     def perform(uri)

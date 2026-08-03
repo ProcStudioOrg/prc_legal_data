@@ -14,35 +14,56 @@ namespace :cnpja do
   task match_mg: :environment do
     limit = Integer(ENV.fetch('LIMIT', '10'))
     page_limit = Integer(ENV.fetch('PAGE_LIMIT', '5'))
+    # Teto de crédito REAL do lote. A task para sozinha ao alcançá-lo, mesmo
+    # que ainda haja sociedades na fila.
+    budget = Integer(ENV.fetch('BUDGET', '700'))
+    # O bucket do CNPJA tem ~16 de burst e refil de ~1/min. Sem pacing o lote
+    # queima o burst em segundos e passa o resto do tempo em backoff de 429.
+    # Pacear na mão é mais rápido no total e não desperdiça request.
+    pace = Float(ENV.fetch('PACE', '62'))
     dry_run = ENV['DRY_RUN'] == 'true'
 
+    # Ordem por sócios conhecidos DESC: quanto mais advogados nossos na
+    # sociedade, mais forte a verificação por sobreposição de nome e mais vale
+    # a firma. Cada consulta custa igual, então gasta-se primeiro no que rende
+    # mais.
     scope = Society.from_oab_portal
                    .where(state: 'MG', cnpj: nil, cnpja_match_confidence: nil)
                    .joins(:lawyer_societies)
-                   .distinct
-                   .order(:id)
+                   .group('societies.id')
+                   .order(Arel.sql('COUNT(lawyer_societies.id) DESC, societies.id ASC'))
                    .limit(limit)
 
     societies = scope.to_a
-    teto_credito = societies.size * page_limit
-    puts "Sociedades a tentar: #{societies.size}"
-    puts "Teto de crédito deste lote: #{teto_credito} (#{page_limit} por busca)"
+    puts "Sociedades na fila: #{societies.size}"
+    puts "Orçamento: #{budget} créditos (para em #{budget}, 1 crédito = 1 CNPJ devolvido)"
+    puts "Teto por busca: #{page_limit} | ritmo: #{pace}s entre buscas"
+    puts "Duração estimada se gastar tudo: ~#{(budget * pace / 3600).round(1)}h"
     puts '(DRY RUN — nenhuma chamada é feita, nenhum crédito é gasto)' if dry_run
     puts
 
     if dry_run
-      societies.each { |s| puts "  ##{s.id} #{s.name} — sócios conhecidos: #{s.lawyers.count}" }
+      societies.first(25).each { |s| puts "  ##{s.id} #{s.name[0, 60]} — sócios: #{s.lawyers.count}" }
       next
     end
 
-    matcher = Cnpja::SocietyMatcher.new
+    client = Cnpja::Client.new
+    matcher = Cnpja::SocietyMatcher.new(client: client)
     stats = Hash.new(0)
 
     societies.each_with_index do |society, i|
+      if client.credits_used >= budget
+        puts "\n>>> Orçamento de #{budget} créditos alcançado (#{client.credits_used} gastos). Parando."
+        stats[:nao_tentadas] = societies.size - i
+        break
+      end
+
+      sleep(pace) if i.positive?
+
       result = matcher.call(society, limit: page_limit)
       stats[result.confidence] += 1
 
-      label = "[#{i + 1}/#{societies.size}] #{society.name[0, 55]}"
+      label = "[#{i + 1}/#{societies.size} | #{client.credits_used}cr] #{society.name[0, 45]}"
       case result.confidence
       when 'verified'
         office = result.office
@@ -66,14 +87,25 @@ namespace :cnpja do
         puts "  --   #{label} — #{result.candidates} candidatos, nenhum sócio confere"
         society.update!(cnpja_match_confidence: 'unmatched', cnpja_synced_at: Time.current)
       end
-    rescue Cnpja::Client::Error, Cnpja::Client::RateLimited => e
+      $stdout.flush
+    rescue Cnpja::Client::RateLimited => e
+      # Num lote de horas, um 429 teimoso não pode matar o trabalho todo: o
+      # backoff do client já tentou 30/60/90/120/150s, então aqui só espera o
+      # bucket encher de verdade e segue para a próxima.
+      stats[:rate_limited] += 1
+      warn "  429  #{label}: #{e.message} — esperando 5min"
+      sleep(300)
+    rescue Cnpja::Client::Error => e
       stats[:erro] += 1
       warn "  ERRO #{label}: #{e.message}"
-      break if e.is_a?(Cnpja::Client::RateLimited)
     end
 
     puts "\n=== Resumo ==="
-    stats.sort_by { |k, _| k.to_s }.each { |k, v| puts format('  %-12s %d', k, v) }
-    puts "\nConfira o painel do CNPJA para o gasto real deste lote antes do próximo."
+    stats.sort_by { |k, _| k.to_s }.each { |k, v| puts format('  %-14s %d', k, v) }
+    puts format('  %-14s %d', 'creditos', client.credits_used)
+    tentadas = stats['verified'] + stats['ambiguous'] + stats['unmatched']
+    puts format('  %-14s %.2f', 'cr/sociedade', tentadas.positive? ? client.credits_used.to_f / tentadas : 0)
+    puts "\nRestam sem tentativa em MG: " \
+         "#{Society.from_oab_portal.where(state: 'MG', cnpja_match_confidence: nil).count}"
   end
 end
