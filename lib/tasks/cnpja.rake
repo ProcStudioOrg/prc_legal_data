@@ -24,10 +24,11 @@ namespace :cnpja do
     # Teto de crédito REAL do lote. A task para sozinha ao alcançá-lo, mesmo
     # que ainda haja sociedades na fila.
     budget = Integer(ENV.fetch('BUDGET', '700'))
-    # O bucket do CNPJA tem ~16 de burst e refil de ~1/min. Sem pacing o lote
-    # queima o burst em segundos e passa o resto do tempo em backoff de 429.
-    # Pacear na mão é mais rápido no total e não desperdiça request.
-    pace = Float(ENV.fetch('PACE', '62'))
+    # Limite real do plano: 30 requests/minuto (painel do CNPJA, 04/08/2026).
+    # O PLANO-CNPJA.md §4 estimou "~1/min" a partir de uma medição indireta e
+    # errou por 30x — o primeiro lote levou horas por isso. 2.2s dá ~27/min,
+    # com folga para não raspar o teto.
+    pace = Float(ENV.fetch('PACE', '2.2'))
     dry_run = ENV['DRY_RUN'] == 'true'
 
     # Ordem por sócios conhecidos DESC: quanto mais advogados nossos na
@@ -57,6 +58,7 @@ namespace :cnpja do
     client = Cnpja::Client.new
     matcher = Cnpja::SocietyMatcher.new(client: client)
     stats = Hash.new(0)
+    erros_seguidos = 0
 
     societies.each_with_index do |society, i|
       if client.credits_used >= budget
@@ -104,7 +106,17 @@ namespace :cnpja do
       sleep(300)
     rescue Cnpja::Client::Error => e
       stats[:erro] += 1
+      erros_seguidos += 1
       warn "  ERRO #{label}: #{e.message}"
+      # Disjuntor: quando o crédito acaba, a API passa a recusar TODA chamada.
+      # Sem isto o lote varreria as 2.500 sociedades restantes tomando erro e
+      # marcando nada. Erro isolado não conta — só sequência.
+      if erros_seguidos >= 5
+        puts "\n>>> 5 erros seguidos — a API parou de responder (crédito esgotado?). Encerrando."
+        break
+      end
+    else
+      erros_seguidos = 0
     end
 
     puts "\n=== Resumo ==="
