@@ -2,7 +2,7 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Societies#destroy', type: :request do
   let(:user) { create(:user) }
-  let(:api_key) { create(:api_key, user: user) }
+  let(:api_key) { create(:api_key, :admin, user: user) }
   let(:headers) { { 'X-API-KEY' => api_key.key, 'Content-Type' => 'application/json' } }
 
   describe 'DELETE /api/v1/society/:inscricao' do

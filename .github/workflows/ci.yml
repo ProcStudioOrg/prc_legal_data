@@ -1,0 +1,66 @@
+name: CI
+
+# Roda em PR e em push para main. O deploy (deploy.yml) espera este workflow
+# passar — ver o `workflow_run` de lá.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    name: RSpec
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: legal_data_api_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      RAILS_ENV: test
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/legal_data_api_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          # Sem `ruby-version`: o setup-ruby lê o .ruby-version sozinho
+          # (confirmado no run 30836931096: "Using 3.4.7 as input from file").
+          bundler-cache: true
+
+      - name: Preparar banco de teste
+        run: bin/rails db:test:prepare
+
+      - name: RSpec
+        run: bundle exec rspec --format progress
+
+  lint:
+    name: RuboCop
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          # Idem: versão vem do .ruby-version.
+          bundler-cache: true
+
+      # O legado (726 ofensas) está congelado em .rubocop_todo.yml. Este passo
+      # falha só em ofensa NOVA — a ideia é estancar, não reformatar 152
+      # arquivos de uma vez. Para queimar o todo aos poucos: apagar uma seção
+      # dele e rodar `bundle exec rubocop -a`.
+      - name: RuboCop
+        run: bundle exec rubocop --format github

@@ -18,6 +18,14 @@ class LawyerSociety < ApplicationRecord
   # por `Society#sync_number_of_partners!`.
 
   # Callbacks
+  #
+  # `lawyers.has_society` é flag denormalizada E indexada
+  # (index_lawyers_on_has_society), mas `Lawyer#update_has_society` só roda no
+  # save do próprio Lawyer — criar o vínculo não salva o advogado. Sem isto o
+  # flag nasce velho e o advogado some de qualquer filtro por has_society.
+  # Fica no model, não no controller, para valer também para rake e console.
+  after_save :sync_lawyer_has_society
+  after_destroy :sync_lawyer_has_society
   after_destroy :destroy_orphan_society
 
   # Enum for partnership types - using string values for Rails 8 compatibility
@@ -28,6 +36,15 @@ class LawyerSociety < ApplicationRecord
   }
 
   private
+
+  # update_column: não dispara validação nem callback do Lawyer, e não mexe em
+  # updated_at — é sincronização de cache, não edição de dado.
+  def sync_lawyer_has_society
+    return if lawyer_id.blank?
+
+    Lawyer.where(id: lawyer_id)
+          .update_all(has_society: LawyerSociety.exists?(lawyer_id: lawyer_id))
+  end
 
   # Auto-delete society when the last member association is removed
   def destroy_orphan_society
