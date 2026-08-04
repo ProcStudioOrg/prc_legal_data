@@ -30,6 +30,16 @@ jobs:
             git fetch origin
             git reset --hard origin/main
 
+            # Sem isto o REVISION fica congelado no último deploy manual e o
+            # /api/v1/version passa a reportar um commit que não é o que está
+            # rodando. Mesmo carimbo do infra/deploy.sh — manter os dois iguais.
+            echo "--- Stamping REVISION ---"
+            printf '{"commit":"%s","branch":"%s","deployed_at":"%s"}\n' \
+              "$(git rev-parse --short HEAD)" \
+              "main" \
+              "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > REVISION
+            cat REVISION
+
             echo "--- Installing dependencies ---"
             bundle install --deployment --without development test
 
