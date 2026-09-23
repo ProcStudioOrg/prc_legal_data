@@ -4,6 +4,11 @@
 # Campos: version (obrigatório), date (dd/mm/yyyy), note (pt-BR, uma linha), pr (URL ou vazio).
 # Exposto em GET /api/v1/version.
 
+- version: "1.6"
+  date: "23/09/2026"
+  note: "Entrega DJEN multi-destino: PROCSTUDIO_DESTINATIONS (base_url|token,...) com carimbo por destino em djen_deliveries; HML e produção recebem as mesmas intimações; tasks djen:deliveries:mark_delivered e reset"
+  pr:
+
 - version: "1.5"
   date: "03/08/2026"
   note: "CRM de sociedades: campo crm_data no payload da sociedade e POST /society/:inscricao/crm para enriquecimento (e-mail, contato, sub-hashes do scraper)"

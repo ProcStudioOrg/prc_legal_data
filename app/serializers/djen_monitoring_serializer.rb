@@ -16,7 +16,8 @@ class DjenMonitoringSerializer
       onboarded_at: @monitoring.onboarded_at,
       comunicacoes: {
         total: @monitoring.djen_comunicacoes.count,
-        pending_push: @monitoring.djen_comunicacoes.pending_push.count,
+        # Pendente em pelo menos um destino configurado.
+        pending_push: @monitoring.djen_comunicacoes.pending_push_for(Djen::Destinations.configured).count,
         cancelled: @monitoring.djen_comunicacoes.where(ativo: false).count
       }
     }

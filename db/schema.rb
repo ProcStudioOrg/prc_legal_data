@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_08_03_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_23_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -43,7 +43,6 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_03_000001) do
 
   create_table "djen_comunicacoes", force: :cascade do |t|
     t.boolean "ativo", default: true, null: false
-    t.datetime "cancellation_pushed_at"
     t.datetime "created_at", null: false
     t.date "data_disponibilizacao"
     t.string "djen_hash"
@@ -51,13 +50,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_03_000001) do
     t.bigint "djen_monitoring_id", null: false
     t.jsonb "labels", default: [], null: false
     t.string "numero_processo"
-    t.datetime "pushed_at"
     t.jsonb "raw", default: {}, null: false
     t.string "sigla_tribunal"
     t.datetime "updated_at", null: false
     t.index ["djen_monitoring_id", "djen_id"], name: "index_djen_comunicacoes_on_djen_monitoring_id_and_djen_id", unique: true
     t.index ["numero_processo"], name: "index_djen_comunicacoes_on_numero_processo"
-    t.index ["pushed_at"], name: "index_djen_comunicacoes_on_pushed_at"
+  end
+
+  create_table "djen_deliveries", force: :cascade do |t|
+    t.datetime "cancellation_pushed_at"
+    t.datetime "created_at", null: false
+    t.string "destination", null: false
+    t.bigint "djen_comunicacao_id", null: false
+    t.datetime "pushed_at"
+    t.datetime "updated_at", null: false
+    t.index ["destination", "pushed_at"], name: "index_djen_deliveries_on_destination_and_pushed_at"
+    t.index ["djen_comunicacao_id", "destination"], name: "index_djen_deliveries_on_djen_comunicacao_id_and_destination", unique: true
   end
 
   create_table "djen_monitorings", force: :cascade do |t|
@@ -299,6 +307,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_08_03_000001) do
 
   add_foreign_key "api_keys", "users"
   add_foreign_key "djen_comunicacoes", "djen_monitorings"
+  add_foreign_key "djen_deliveries", "djen_comunicacoes"
   add_foreign_key "djen_monitorings", "lawyers"
   add_foreign_key "lawyer_societies", "lawyers"
   add_foreign_key "lawyer_societies", "societies"

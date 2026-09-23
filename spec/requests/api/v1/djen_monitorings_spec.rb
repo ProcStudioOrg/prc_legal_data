@@ -103,6 +103,11 @@ RSpec.describe "Api::V1::Djen::Monitorings", type: :request do
   end
 
   describe "GET /api/v1/djen/monitorings/:oab" do
+    before do
+      allow(Djen::Destinations).to receive(:configured)
+        .and_return([ Djen::Destination.new(base_url: "https://procstudio.example.com", token: "t") ])
+    end
+
     it "returns monitoring status with counts" do
       monitoring = create(:djen_monitoring, :onboarded, lawyer: lawyer)
       create(:djen_comunicacao, :pushed, djen_monitoring: monitoring)
