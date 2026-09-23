@@ -74,6 +74,8 @@ SECRET_KEY_BASE=GENERATE_WITH_bin_rails_secret
 PORT=3000
 WEB_CONCURRENCY=2
 RAILS_MAX_THREADS=5
+# Destinos do push de intimações DJEN: base_url|token, separados por vírgula.
+PROCSTUDIO_DESTINATIONS=https://api-hml.procstudio.com.br|CHANGE_ME,https://api.procstudio.com.br|CHANGE_ME
 ENVEOF
   chmod 600 "${ENV_FILE}"
   echo "Created ${ENV_FILE} — edit it with real values before deploying."

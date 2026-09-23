@@ -11,6 +11,7 @@ Rails 8, API-only. Registro de advogados (OAB), sociedades e monitoramento DJEN.
 
 ## DJEN
 - Issue de cancelamento: Não é tão preocupante não saber os cancelamentos. A janela da varredura diária é de **15 dias** (`SweepLawyerJob::DAILY_WINDOW_DAYS`); cancelamentos fora dela são risco aceito — raramente ocorrem, não há riscos a partir deste ponto.
+- **Entrega multi-destino**: cada comunicação vai para TODOS os ProcStudios de `PROCSTUDIO_DESTINATIONS` (`base_url|token,...`; legado: `PROCSTUDIO_BASE_URL` + `INTEGRATION_DJEN_TOKEN`), com carimbo por destino em `djen_deliveries` (`DjenDelivery`). "Pendente" é sempre em relação a um destino (`pending_push_to`). Destino novo recebe o ledger inteiro na próxima varredura — `rake djen:deliveries:mark_delivered[url]` evita isso; `rake djen:deliveries:reset[url,OAB]` força o reenvio de um advogado. Um destino fora do ar não segura os outros (o erro sobe depois de entregar aos saudáveis).
 - **Entrega multi-advogado**: uma comunicação que cita 2+ advogados monitorados vira uma linha no ledger **por monitoramento** (unique `[djen_monitoring_id, djen_id]`) e é enviada uma vez no lote de cada `advogado_monitorado`. Dedupe/atribuição por time é responsabilidade do ProcStudio (usar o array `advogados` do payload).
 
 ## Versionamento (obrigatório)

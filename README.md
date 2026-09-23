@@ -166,6 +166,21 @@ DELETE /api/v1/djen/monitorings/:oab  # Pause watching (admin only) — history 
 
 Any OAB in a lawyer's cluster (principal **or** supplementary) resolves to the principal, so one person can never end up with two watches. `POST` is idempotent: re-activating an existing watch returns `200` instead of `201`.
 
+**Destinos de entrega.** Cada comunicação é entregue a *todos* os ProcStudios configurados, com carimbo por destino (`djen_deliveries`), então HML e produção coexistem sem um roubar a intimação do outro:
+
+```
+PROCSTUDIO_DESTINATIONS="https://api-hml.procstudio.com.br|<token hml>,https://api.procstudio.com.br|<token prod>"
+```
+
+Sem essa variável vale o par legado `PROCSTUDIO_BASE_URL` + `INTEGRATION_DJEN_TOKEN` (um destino só). O destino é identificado pela `base_url` normalizada: trocar a URL equivale a criar um destino novo. Um destino recém-adicionado recebe **todo o ledger** de todos os monitoramentos na próxima varredura; para começar só com o que vier daqui em diante, ou para reenviar o histórico de um advogado:
+
+```
+bundle exec rake "djen:deliveries:mark_delivered[https://api.procstudio.com.br]"   # carimba o histórico como entregue
+bundle exec rake "djen:deliveries:reset[https://api.procstudio.com.br,PR_54159]"   # próxima varredura reenvia o ledger dele
+```
+
+`comunicacoes.pending_push` no status abaixo conta o que ainda falta em **pelo menos um** destino.
+
 ```json
 {
   "oab_id": "PR_54159",
