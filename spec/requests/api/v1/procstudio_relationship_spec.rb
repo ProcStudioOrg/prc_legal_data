@@ -59,5 +59,4 @@ RSpec.describe 'Versioned ProcStudio relationship', type: :request do
     expect(response).to have_http_status(:ok)
     expect(JSON.parse(response.body)['relationship_contract']).to eq('procstudio-relationship-v1')
   end
-
 end
