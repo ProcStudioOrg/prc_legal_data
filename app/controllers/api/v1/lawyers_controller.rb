@@ -481,20 +481,28 @@ module Api
         end
 
         begin
-          current_crm = @lawyer.crm_data || {}
-          new_crm = current_crm.deep_merge(crm_params.compact)
-
-          if @lawyer.update(crm_data: new_crm)
-            render json: {
-              message: "Dados CRM atualizados com sucesso",
-              oab_id: @lawyer.oab_id,
-              crm_data: @lawyer.crm_data
-            }, status: :ok
-          else
-            render json: {
-              error: "Erro ao atualizar dados CRM",
-              details: @lawyer.errors.full_messages
-            }, status: :unprocessable_entity
+          # Every CRM writer reloads under the same row lock. A preloaded generic
+          # request must not overwrite a concurrent relationship delivery.
+          @lawyer.with_lock do
+            current_crm = @lawyer.crm_data || {}
+            incoming = crm_params.dig("outreach", "procstudio_relationship")
+            if crm_params.fetch("outreach", {}).key?("procstudio_relationship")
+              guard = ProcstudioRelationshipGuard.validate(incoming, current_crm.dig("outreach", "procstudio_relationship"), @lawyer)
+              if guard
+                render json: { error: guard[:error] }, status: guard[:status]
+                return
+              end
+            end
+            new_crm = current_crm.deep_merge(crm_params.compact)
+            # Versioned payload is a complete projection, including explicit nulls.
+            new_crm["outreach"]["procstudio_relationship"] = incoming if incoming
+            if @lawyer.update(crm_data: new_crm)
+              result = { message: "Dados CRM atualizados com sucesso", oab_id: @lawyer.oab_id, crm_data: @lawyer.crm_data }
+              result[:relationship_contract] = "procstudio-relationship-v1" if incoming
+              render json: result, status: :ok
+            else
+              render json: { error: "Erro ao atualizar dados CRM", details: @lawyer.errors.full_messages }, status: :unprocessable_entity
+            end
           end
         rescue => e
           Rails.logger.error("Error updating CRM for lawyer #{@lawyer.oab_id}: #{e.message}")
