@@ -4,6 +4,11 @@
 # Campos: version (obrigatório), date (dd/mm/yyyy), note (pt-BR, uma linha), pr (URL ou vazio).
 # Exposto em GET /api/v1/version.
 
+- version: "1.8"
+  date: "26/09/2026"
+  note: "Consulta paginada do Classificador por UF, cidade normalizada, faixa e ordem numérica da inscrição, com identidade principal e inscrições suplementares"
+  pr:
+
 - version: "1.7"
   date: "06/10/2026"
   note: "Receita Federal via dump OpenCNPJ: sociedade do advogado ganha cnpj, bloco receita e partners (sócios com oab_id); GET /cnpj/:cnpj com fallback na API pública; GET /receita/companies para prospecção com filtros e cursor"
