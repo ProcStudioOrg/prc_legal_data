@@ -13,9 +13,9 @@ RSpec.describe 'Classifier candidates', type: :request do
     expect(response).to have_http_status(:ok)
     body = JSON.parse(response.body)
     expect(body['contract']).to eq('classifier-candidates-v1')
-    expect(body['lawyers'].map { |r| r['matched_oab_id'] }).to eq(['PR_9'])
+    expect(body['lawyers'].map { |r| r['matched_oab_id'] }).to eq([ 'PR_9' ])
     get '/api/v1/lawyers/classifier-candidates', params: filters.merge(cursor: body['next_cursor']), headers: headers
-    expect(JSON.parse(response.body)['lawyers'].map { |r| r['matched_oab_id'] }).to eq(['PR_100'])
+    expect(JSON.parse(response.body)['lawyers'].map { |r| r['matched_oab_id'] }).to eq([ 'PR_100' ])
   end
   it 'deduplicates the person by ordered matched registration and exposes all aliases' do
     principal = create(:lawyer, oab_id: 'SP_999', oab_number: '999', state: 'SP')
@@ -60,5 +60,4 @@ RSpec.describe 'Classifier candidates', type: :request do
     row = JSON.parse(response.body)['lawyers'].first
     expect(row).to include('city' => 'São José', 'canonical_city' => nil, 'canonical_state' => 'SP')
   end
-
 end

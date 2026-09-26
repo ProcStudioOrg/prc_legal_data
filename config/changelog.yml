@@ -7,17 +7,17 @@
 - version: "1.10"
   date: "26/09/2026"
   note: "POST /lawyer/:oab/procstudio-relationship; CRM faz merge sob lock e valida versão, identidade, idempotência e data do namespace outreach.procstudio_relationship; conflitos retornam 409"
-  pr:
+  pr: "https://github.com/ProcStudioOrg/prc_legal_data/pull/6"
 
 - version: "1.9"
   date: "26/09/2026"
   note: "Classificador distingue cidade e UF da inscrição principal da localização da inscrição selecionada, preservando localização desconhecida"
-  pr:
+  pr: "https://github.com/ProcStudioOrg/prc_legal_data/pull/6"
 
 - version: "1.8"
   date: "26/09/2026"
   note: "Consulta paginada do Classificador por UF, cidade normalizada, faixa e ordem numérica da inscrição, com identidade principal e inscrições suplementares"
-  pr:
+  pr: "https://github.com/ProcStudioOrg/prc_legal_data/pull/6"
 
 - version: "1.7"
   date: "06/10/2026"
