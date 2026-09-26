@@ -12,7 +12,7 @@ class ProcstudioRelationshipGuard
     rescue ArgumentError
       valid = false
     end
-    return { status: :unprocessable_entity, error: 'Metadados de relacionamento inválidos; use a OAB principal e schema_version 1' } unless valid
+    return { status: :unprocessable_content, error: 'Metadados de relacionamento inválidos; use a OAB principal e schema_version 1' } unless valid
     return nil if current.nil?
     return { status: :conflict, error: 'Namespace legado inválido; reconcilie antes de enviar' } unless current.is_a?(Hash)
     return nil if current == incoming

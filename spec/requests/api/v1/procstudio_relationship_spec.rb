@@ -39,7 +39,7 @@ RSpec.describe 'Versioned ProcStudio relationship', type: :request do
   end
   it 'requires valid metadata and preserves historical trial truth' do
     deliver({ 'version' => 1 })
-    expect(response).to have_http_status(:unprocessable_entity)
+    expect(response).to have_http_status(:unprocessable_content)
     deliver(fact)
     deliver(fact(2).merge('historical' => { 'tried' => false }))
     expect(response).to have_http_status(:conflict)
