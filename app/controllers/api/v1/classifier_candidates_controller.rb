@@ -48,6 +48,7 @@ module Api
           p = principals.fetch(r['canonical_id'])
           { oab_id: p.oab_id, matched_oab_id: r.oab_id, matched_oab_number: r['matched_number'],
             full_name: p.full_name, city: r.city, state: r.state,
+            canonical_city: p.city, canonical_state: p.state,
             registrations: aliases.fetch(p.id).map(&:oab_id) }
         end
         next_cursor = if records.length > limit

@@ -4,6 +4,11 @@
 # Campos: version (obrigatório), date (dd/mm/yyyy), note (pt-BR, uma linha), pr (URL ou vazio).
 # Exposto em GET /api/v1/version.
 
+- version: "1.9"
+  date: "26/09/2026"
+  note: "Classificador distingue cidade e UF da inscrição principal da localização da inscrição selecionada, preservando localização desconhecida"
+  pr:
+
 - version: "1.8"
   date: "26/09/2026"
   note: "Consulta paginada do Classificador por UF, cidade normalizada, faixa e ordem numérica da inscrição, com identidade principal e inscrições suplementares"
