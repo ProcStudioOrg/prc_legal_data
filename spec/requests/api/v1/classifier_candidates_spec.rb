@@ -25,6 +25,7 @@ RSpec.describe 'Classifier candidates', type: :request do
     rows = JSON.parse(response.body)['lawyers']
     expect(rows.map { |r| r['matched_oab_id'] }).to eq(%w[PR_80 PR_60])
     expect(rows[0]['oab_id']).to eq('SP_999')
+    expect(rows[0]).to include('city' => 'São José', 'state' => 'PR', 'canonical_city' => 'São Paulo', 'canonical_state' => 'SP')
     expect(rows[0]['registrations']).to match_array(%w[SP_999 PR_20 PR_80])
   end
   it 'excludes customers anywhere in cluster and cancelled registrations' do
@@ -49,6 +50,15 @@ RSpec.describe 'Classifier candidates', type: :request do
     cursor = JSON.parse(response.body)['next_cursor']
     get '/api/v1/lawyers/classifier-candidates', params: filters.merge(order: 'desc', cursor: cursor), headers: headers
     expect(response).to have_http_status(:bad_request)
+  end
+
+  it 'keeps absent principal city unknown when selecting a supplementary location' do
+    principal = create(:lawyer, oab_id: 'SP_999', oab_number: '999', state: 'SP', city: nil)
+    candidate(9, principal_lawyer: principal)
+    get '/api/v1/lawyers/classifier-candidates', params: filters, headers: headers
+    expect(response).to have_http_status(:ok)
+    row = JSON.parse(response.body)['lawyers'].first
+    expect(row).to include('city' => 'São José', 'canonical_city' => nil, 'canonical_state' => 'SP')
   end
 
 end
