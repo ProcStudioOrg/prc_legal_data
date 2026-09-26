@@ -11,6 +11,7 @@ Rails.application.routes.draw do
       # Rotas de advogados
       # Rota batch para scraper
       get 'lawyers', to: 'lawyers#index'
+      get 'lawyers/classifier-candidates', to: 'classifier_candidates#index'
       get 'lawyers/crm', to: 'lawyers#crm_index'
       get 'lawyer/:oab', to: 'lawyers#show_by_oab'
       get 'lawyer/:oab/crm', to: 'lawyers#show_crm'
