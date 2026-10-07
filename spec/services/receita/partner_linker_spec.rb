@@ -42,4 +42,26 @@ RSpec.describe Receita::PartnerLinker do
     expect([pj, sp].map { |p| p.reload.lawyer_id }).to eq([nil, nil])
     expect(already.reload.lawyer_id).not_to eq(principal.id)
   end
+
+  it 'conta no_lawyer e candidates quando não há advogado com o nome na UF' do
+    create(:lawyer, full_name: 'MARIA LIMA', state: 'SP')
+    company = create(:receita_company, uf: 'PR', release: release)
+    create(:receita_partner, receita_company: company, nome_socio: 'MARIA LIMA', last_seen_release: release)
+
+    stats = run
+    expect(stats[:candidates]).to eq(1)
+    expect(stats[:no_lawyer]).to eq(1)
+    expect(stats[:linked]).to eq(0)
+  end
+
+  it 'em dry_run não grava vínculo e não conta linked' do
+    create(:lawyer, full_name: 'Ana Beatriz Rocha', state: 'PR')
+    company = create(:receita_company, uf: 'PR', release: release)
+    partner = create(:receita_partner, receita_company: company, nome_socio: 'ANA BEATRIZ ROCHA', last_seen_release: release)
+
+    stats = described_class.new(state: 'PR', release: release, dry_run: true, logger: Logger.new(nil)).call
+    expect(stats[:candidates]).to eq(1)
+    expect(stats[:linked]).to eq(0)
+    expect(partner.reload.lawyer_id).to be_nil
+  end
 end

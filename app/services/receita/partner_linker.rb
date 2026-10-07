@@ -34,9 +34,9 @@ module Receita
             updates[ids.first] << partner_id
           end
         end
-        next if @dry_run
+        next if @dry_run # dry_run não grava nem conta :linked
 
-        updates.each { |lawyer_id, partner_ids| ReceitaPartner.where(id: partner_ids).update_all(lawyer_id: lawyer_id) }
+        updates.each { |lawyer_id, partner_ids| ReceitaPartner.where(id: partner_ids, lawyer_id: nil).update_all(lawyer_id: lawyer_id) }
         @stats[:linked] += updates.values.sum(&:size)
       end
 
