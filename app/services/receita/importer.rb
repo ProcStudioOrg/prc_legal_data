@@ -75,6 +75,11 @@ module Receita
       return nil if line.empty?
 
       record = JSON.parse(line)
+      unless record.is_a?(Hash)
+        @stats[:malformed_line] += 1
+        return nil
+      end
+
       @stats[:read] += 1
       if record["cnpj"].to_s.length != 14
         @stats[:skipped_no_cnpj] += 1

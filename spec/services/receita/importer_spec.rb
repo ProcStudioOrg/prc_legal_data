@@ -51,4 +51,17 @@ RSpec.describe Receita::Importer do
     expect(stats[:read]).to eq(5)
     expect(ReceitaCompany.count).to eq(0)
   end
+
+  it 'linha JSON que não é objeto conta como malformada e a importação segue' do
+    Tempfile.create([ 'receita', '.ndjson' ]) do |f|
+      f.puts('null')
+      f.puts('[1,2]')
+      f.puts(lines.first.to_json)
+      f.flush
+      stats = described_class.new(file: f.path, release: '2026-08', logger: Logger.new(nil)).call
+      expect(stats[:malformed_line]).to eq(2)
+      expect(stats[:read]).to eq(1)
+    end
+    expect(ReceitaCompany.count).to eq(1)
+  end
 end
