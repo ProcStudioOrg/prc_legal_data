@@ -27,6 +27,10 @@ Rails.application.routes.draw do
       post 'society/:inscricao/crm', to: 'societies#update_crm'
       delete 'society/:inscricao', to: 'societies#destroy'
 
+      # Receita Federal (dump OpenCNPJ + API pública). `:cnpj` aceita máscara com pontos e hífen
+      # (sem barra: o ProcStudio e o FFD mandam 14 caracteres limpos).
+      get 'cnpj/:cnpj', to: 'cnpj#show', constraints: { cnpj: /[0-9A-Za-z.\-]+/ }
+
       # Rotas de relações advogado-sociedade
       resources :lawyer_societies, only: [:create, :show, :update, :destroy]
 

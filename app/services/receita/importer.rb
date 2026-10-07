@@ -42,9 +42,11 @@ module Receita
     def import_records(records)
       now = Time.current
       records = records.select { |r| r['cnpj'].to_s.length == 14 }.uniq { |r| r['cnpj'] }
-      existing = ReceitaCompany.where(cnpj: records.map { |r| r['cnpj'] }, release: @release, source: @source).pluck(:cnpj).to_set
-      records = records.reject { |r| existing.include?(r['cnpj']) }
-      @stats[:companies_unchanged] += existing.size
+      if @release.present?
+        existing = ReceitaCompany.where(cnpj: records.map { |r| r['cnpj'] }, release: @release, source: @source).pluck(:cnpj).to_set
+        records = records.reject { |r| existing.include?(r['cnpj']) }
+        @stats[:companies_unchanged] += existing.size
+      end
       return 0 if records.empty?
 
       ActiveRecord::Base.transaction do
