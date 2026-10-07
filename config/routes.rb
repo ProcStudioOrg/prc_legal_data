@@ -11,11 +11,13 @@ Rails.application.routes.draw do
       # Rotas de advogados
       # Rota batch para scraper
       get 'lawyers', to: 'lawyers#index'
+      get 'lawyers/classifier-candidates', to: 'classifier_candidates#index'
       get 'lawyers/crm', to: 'lawyers#crm_index'
       get 'lawyer/:oab', to: 'lawyers#show_by_oab'
       get 'lawyer/:oab/crm', to: 'lawyers#show_crm'
       post 'lawyer/create', to: 'lawyers#create_lawyer'
       post 'lawyer/:oab/update', to: 'lawyers#update_lawyer'
+      post 'lawyer/:oab/procstudio-relationship', to: 'lawyers#update_crm'
       post 'lawyer/:oab/crm', to: 'lawyers#update_crm'
       get 'lawyer/:oab/debug', to: 'lawyers#_debug'
       get 'lawyer/state/:state/last', to: 'lawyers#last_oab_by_state'

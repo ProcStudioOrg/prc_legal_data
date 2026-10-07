@@ -129,6 +129,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_06_120000) do
     t.string "zip_address"
     t.string "zip_code"
     t.index "lower((oab_id)::text)", name: "index_lawyers_on_lower_oab_id"
+    t.index "state, regexp_replace(TRIM(BOTH FROM translate(lower((city)::text), 'áàâãäéèêëíìîïóòôõöúùûüç'::text, 'aaaaaeeeeiiiiooooouuuuc'::text)), '\\s+'::text, ' '::text, 'g'::text)", name: "index_lawyers_classifier_city"
     t.index ["crm_data"], name: "index_lawyers_on_crm_data", using: :gin
     t.index ["djen_advogado_id"], name: "index_lawyers_on_djen_advogado_id"
     t.index ["full_name"], name: "index_lawyers_on_full_name"
