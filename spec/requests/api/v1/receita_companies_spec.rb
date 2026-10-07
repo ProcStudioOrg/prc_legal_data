@@ -83,4 +83,40 @@ RSpec.describe 'Api::V1::Receita::Companies', type: :request do
 
     expect(get_companies(uf: 'PR', situacao: 'Baixada')['companies'].map { |c| c['cnpj'] }).to eq([baixada.cnpj])
   end
+
+  it 'natureza=all não filtra e reporta all em filters_applied' do
+    create(:receita_company, uf: 'PR', cnpj: '10000000000100')
+    cartorio = create(:receita_company, uf: 'PR', cnpj: '10000000000200', natureza_juridica: 'Serviço Notarial e Registral (Cartório)')
+
+    body = get_companies(uf: 'PR', natureza: 'all')
+    expect(body['companies'].map { |c| c['cnpj'] }).to include(cartorio.cnpj)
+    expect(body['meta']['filters_applied']['natureza']).to eq('all')
+  end
+
+  it 'devolve 400 em pt-BR para datas inválidas' do
+    %i[founded_since updated_since].each do |param|
+      get '/api/v1/receita/companies', params: { uf: 'PR', param => 'garbage' }, headers: headers
+      expect(response).to have_http_status(:bad_request)
+      expect(response.parsed_body['error']).to start_with('Parâmetro de data inválido')
+    end
+  end
+
+  it 'não gera N+1 ao serializar sócios' do
+    count_queries = lambda do
+      count = 0
+      counter = ->(*, payload) { count += 1 unless payload[:name] =~ /SCHEMA|TRANSACTION/ }
+      ActiveSupport::Notifications.subscribed(counter, 'sql.active_record') { get '/api/v1/receita/companies', params: { uf: 'PR' }, headers: headers }
+      count
+    end
+    make = lambda do |i|
+      company = create(:receita_company, uf: 'PR', cnpj: format('%014d', 40_000_000_000_100 + i * 100))
+      create(:receita_partner, receita_company: company, lawyer: create(:lawyer), last_seen_release: company.release)
+    end
+
+    make.call(0)
+    count_queries.call # aquece caches (api key, schema)
+    one = count_queries.call
+    2.times { |i| make.call(i + 1) }
+    expect(count_queries.call).to eq(one)
+  end
 end

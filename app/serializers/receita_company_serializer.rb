@@ -44,7 +44,7 @@ class ReceitaCompanySerializer
   end
 
   def partners_block
-    @company.current_partners.includes(:lawyer).map do |p|
+    partners.map do |p|
       {
         nome: p.nome_socio,
         qualificacao: p.qualificacao,
@@ -56,6 +56,14 @@ class ReceitaCompanySerializer
       }
     end
   end
+
+  # Usa a associação pré-carregada (listagens) para não gerar N+1.
+  def partners
+    return @company.current_partners.includes(:lawyer) unless @company.receita_partners.loaded?
+
+    @company.receita_partners.select { |p| @company.release.blank? || p.last_seen_release == @company.release }
+  end
+  private :partners
 
   def self.serialize_collection(companies)
     companies.map { |c| new(c).as_json }

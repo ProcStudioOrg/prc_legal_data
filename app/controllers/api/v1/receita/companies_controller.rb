@@ -25,11 +25,13 @@ module Api
           scope = apply_situacao(scope)
           scope = scope.matrizes unless params[:matriz].to_s == 'false'
           scope = apply_natureza(scope)
-          scope = scope.where('data_inicio_atividade >= ?', Date.iso8601(params[:founded_since])) if params[:founded_since].present?
-          scope = scope.where('receita_companies.updated_at >= ?', Time.iso8601(params[:updated_since])) if params[:updated_since].present?
+          founded_since = parse_param(:founded_since) { |v| Date.iso8601(v) }
+          updated_since = parse_param(:updated_since) { |v| Time.iso8601(v) }
+          scope = scope.where('data_inicio_atividade >= ?', founded_since) if founded_since
+          scope = scope.where('receita_companies.updated_at >= ?', updated_since) if updated_since
           scope = scope.where(society_id: nil).where.not(cnpj_root: ::ReceitaCompany.where.not(society_id: nil).select(:cnpj_root)) if params[:unmatched].to_s == 'true'
           scope = scope.where(id: ::ReceitaPartner.linked.select(:receita_company_id)) if params[:known_lawyer].to_s == 'true'
-          scope = scope.where('cnpj > ?', params[:from_cnpj]) if params[:from_cnpj].present?
+          scope = scope.where('cnpj > ?', params[:from_cnpj].to_s) if params[:from_cnpj].to_s.present?
 
           records = scope.order(:cnpj).limit(limit + 1).includes(receita_partners: :lawyer).to_a
           has_more = records.size > limit
@@ -41,16 +43,32 @@ module Api
               returned: page.size,
               next_from_cnpj: has_more ? page.last.cnpj : nil,
               filters_applied: { uf: uf, limit: limit, situacao: params[:situacao].presence || 'Ativa',
-                                 matriz: params[:matriz].to_s != 'false', natureza: natureza_filter,
-                                 founded_since: params[:founded_since], updated_since: params[:updated_since],
+                                 matriz: params[:matriz].to_s != 'false', natureza: natureza_applied,
+                                 founded_since: params[:founded_since].presence&.to_s, updated_since: params[:updated_since].presence&.to_s,
                                  unmatched: params[:unmatched].to_s == 'true', known_lawyer: params[:known_lawyer].to_s == 'true' }
             }
           }, status: :ok
-        rescue ArgumentError, Date::Error => e
+        rescue InvalidParam => e
           render json: { error: "Parâmetro de data inválido: #{e.message}" }, status: :bad_request
         end
 
         private
+
+        class InvalidParam < StandardError; end
+
+        # Só o parse de data vira 400; qualquer outro ArgumentError continua sendo erro de verdade.
+        def parse_param(name)
+          value = params[name].to_s
+          return nil if value.blank?
+
+          yield value
+        rescue ArgumentError, Date::Error
+          raise InvalidParam, "#{name} deve estar em formato ISO 8601"
+        end
+
+        def natureza_applied
+          params[:natureza].to_s == 'all' ? 'all' : natureza_filter
+        end
 
         def apply_situacao(scope)
           situacao = params[:situacao].to_s
@@ -61,7 +79,7 @@ module Api
         end
 
         def natureza_filter
-          params[:natureza].presence&.split(',')&.map(&:strip) || ::ReceitaCompany::SOCIETY_NATURES
+          params[:natureza].to_s.presence&.split(',')&.map(&:strip) || ::ReceitaCompany::SOCIETY_NATURES
         end
 
         def apply_natureza(scope)
