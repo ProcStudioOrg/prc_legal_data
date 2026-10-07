@@ -152,6 +152,26 @@ RSpec.describe Receita::SocietyMatcher do
     expect(company.reload.society_id).to eq(society.id)
   end
 
+  it 'principal e suplementar com o mesmo nome vinculam o sócio ao principal' do
+    society = society_with('PRINCIPAL ADVOGADOS', 'SOCIO UM')
+    principal = society.lawyers.first
+    supplementary = create(:lawyer, full_name: 'SOCIO UM', state: 'PR', principal_lawyer: principal)
+    create(:lawyer_society, society: society, lawyer: supplementary)
+    company = firm('PRINCIPAL ADVOGADOS', 'SOCIO UM')
+
+    run
+    expect(company.receita_partners.first.reload.lawyer_id).to eq(principal.id)
+  end
+
+  it 'homônimos reais na mesma sociedade não recebem vínculo' do
+    society = society_with('HOMONIMOS ADVOGADOS', 'SOCIO UM', 'SOCIO UM')
+    company = firm('HOMONIMOS ADVOGADOS', 'SOCIO UM')
+
+    run
+    expect(company.receita_partners.first.reload.lawyer_id).to be_nil
+    expect(society.reload.cnpj).to eq(company.cnpj)
+  end
+
   it 'ignora firma de outra UF e sociedade sem advogados' do
     create(:society, name: 'SEM SOCIOS', state: 'PR')
     society_with('FORA DA UF ADVOGADOS', 'SOCIO UM')

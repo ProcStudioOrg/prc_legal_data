@@ -35,14 +35,7 @@ module Receita
 
       Society.where(state: @state).includes(:lawyers).find_each do |society|
         @stats[:societies] += 1
-        lawyer_names = society.lawyers.each_with_object({}) do |l, h|
-          key = NameNormalizer.call(l.full_name)
-          next if key.empty?
-
-          # Dois advogados da mesma sociedade com o mesmo nome normalizado: não dá
-          # para saber qual é qual, então nenhum recebe o vínculo.
-          h[key] = h.key?(key) ? nil : l.id
-        end
+        lawyer_names = lawyer_name_index(society)
         next @stats[:no_lawyers] += 1 if lawyer_names.empty?
 
         if society.cnpja_match_confidence == VERIFIED && society.cnpj.present?
@@ -60,6 +53,18 @@ module Receita
     end
 
     private
+
+    # nome normalizado => id do advogado principal. Principal e suplementar da
+    # mesma pessoa contam uma vez só; só homônimos reais ficam com nil (não dá
+    # para saber qual é qual, então nenhum recebe o vínculo).
+    def lawyer_name_index(society)
+      society.lawyers.group_by { |l| NameNormalizer.call(l.full_name) }.each_with_object({}) do |(key, lawyers), h|
+        next if key.empty?
+
+        ids = lawyers.map { |l| l.principal_lawyer_id || l.id }.uniq
+        h[key] = ids.size == 1 ? ids.first : nil
+      end
+    end
 
     # Índices em memória da UF: por nome da firma e por nome de sócio PF.
     def load_companies
