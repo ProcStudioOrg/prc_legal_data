@@ -7,6 +7,9 @@ module Receita
   class CnpjLookup
     API_TTL = 30.days
     NEGATIVE_TTL = 7.days
+    # Disjuntor: após falha da API, 60 s sem tentar de novo (protege as threads do Puma).
+    BREAKER_KEY = "receita:opencnpj:breaker"
+    BREAKER_TTL = 60.seconds
 
     Result = Struct.new(:status, :company, :retry_after, keyword_init: true)
 
@@ -44,6 +47,8 @@ module Receita
     end
 
     def refresh_from_api
+      return Result.new(status: :unavailable, retry_after: BREAKER_TTL.to_i) if Rails.cache.read(BREAKER_KEY)
+
       record = @client.fetch(@cnpj)
       if record.nil?
         store_negative
@@ -54,10 +59,16 @@ module Receita
               .import_records([ record.merge("cnpj" => @cnpj) ])
       Result.new(status: :found, company: ReceitaCompany.find_by!(cnpj: @cnpj))
     rescue OpencnpjClient::RateLimited => e
+      trip_breaker
       Result.new(status: :unavailable, retry_after: e.retry_after)
     rescue OpencnpjClient::Error => e
+      trip_breaker
       Rails.logger.warn("Receita::CnpjLookup #{@cnpj}: #{e.message}")
       Result.new(status: :unavailable)
+    end
+
+    def trip_breaker
+      Rails.cache.write(BREAKER_KEY, true, expires_in: BREAKER_TTL)
     end
 
     def store_negative

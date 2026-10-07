@@ -84,4 +84,33 @@ RSpec.describe Receita::CnpjLookup do
     expect(described_class.call(cnpj).status).to eq(:unavailable)
     expect(ReceitaCompany.where(cnpj: cnpj)).to be_empty
   end
+
+  describe 'disjuntor de 60 s' do
+    before { allow(Rails).to receive(:cache).and_return(ActiveSupport::Cache::MemoryStore.new) }
+
+    it 'após um timeout, nova consulta dentro de 60 s não chama a API' do
+      stub = stub_request(:get, api_url).to_timeout
+      expect(described_class.call(cnpj).status).to eq(:unavailable)
+
+      result = described_class.call(cnpj)
+      expect(result.status).to eq(:unavailable)
+      expect(result.retry_after).to eq(60)
+      expect(stub).to have_been_requested.once
+    end
+
+    it 'o 429 também abre o disjuntor' do
+      stub = stub_request(:get, api_url).to_return(status: 429, headers: { 'Retry-After' => '30' })
+      described_class.call(cnpj)
+      expect(described_class.call(cnpj).retry_after).to eq(60)
+      expect(stub).to have_been_requested.once
+    end
+
+    it 'linha da tabela segue sendo servida com o disjuntor aberto' do
+      stub_request(:get, api_url).to_timeout
+      described_class.call(cnpj)
+      company = create(:receita_company, cnpj: '12345678000195')
+
+      expect(described_class.call('12345678000195')).to have_attributes(status: :found, company: company)
+    end
+  end
 end

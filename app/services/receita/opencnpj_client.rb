@@ -9,8 +9,8 @@ module Receita
   # cache. A própria API manda Cache-Control de 24h.
   class OpencnpjClient
     HOST = "api.opencnpj.org"
-    OPEN_TIMEOUT = 3
-    READ_TIMEOUT = 5
+    OPEN_TIMEOUT = 2
+    READ_TIMEOUT = 3
 
     class Error < StandardError; end
 
