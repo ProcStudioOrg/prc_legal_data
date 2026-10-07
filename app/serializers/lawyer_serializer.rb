@@ -62,8 +62,10 @@ class LawyerSerializer
   def society_attributes
     return {} unless @include_societies
 
-    societies_data = @lawyer.lawyer_societies.includes(:society).map do |ls|
+    societies_data = @lawyer.lawyer_societies.includes(society: { receita_company: { receita_partners: :lawyer } }).map do |ls|
       society = ls.society
+      receita = society.receita_company if society.cnpja_match_confidence == Receita::SocietyMatcher::VERIFIED && society.cnpj.present?
+      serializer = receita && ReceitaCompanySerializer.new(receita)
       {
         id: society.id,
         name: society.name,
@@ -77,7 +79,10 @@ class LawyerSerializer
         number_of_partners: society.number_of_partners,
         society_link: society.society_link,
         partnership_type: ls.partnership_type,
-        partnership_type_label: ls.partnership_type_before_type_cast
+        partnership_type_label: ls.partnership_type_before_type_cast,
+        cnpj: receita ? society.cnpj : nil,
+        receita: serializer&.receita_block,
+        partners: serializer ? serializer.partners_block : []
       }
     end
 

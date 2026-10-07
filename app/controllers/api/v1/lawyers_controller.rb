@@ -161,7 +161,8 @@ module Api
         end
 
         # 2. Find the initially requested lawyer record with eager loading
-        found_lawyer = Lawyer.includes(:principal_lawyer, :supplementary_lawyers, :lawyer_societies, :societies).find_by(oab_id: oab)
+        found_lawyer = Lawyer.includes(:principal_lawyer, :supplementary_lawyers, :lawyer_societies,
+                                       societies: { receita_company: { receita_partners: :lawyer } }).find_by(oab_id: oab)
 
         # 3. Handle case where no lawyer is found for the given OAB ID
         unless found_lawyer
@@ -190,11 +191,13 @@ module Api
           end
 
           # Fetch all supplementaries related to this principal (with societies)
-          supplementary_lawyers = principal_lawyer.supplementary_lawyers.includes(:lawyer_societies, :societies)
+          supplementary_lawyers = principal_lawyer.supplementary_lawyers.includes(:lawyer_societies,
+                                       societies: { receita_company: { receita_partners: :lawyer } })
         else
           # The found lawyer is the principal
           principal_lawyer = found_lawyer
-          supplementary_lawyers = principal_lawyer.supplementary_lawyers.includes(:lawyer_societies, :societies)
+          supplementary_lawyers = principal_lawyer.supplementary_lawyers.includes(:lawyer_societies,
+                                       societies: { receita_company: { receita_partners: :lawyer } })
         end
 
         # 5. Perform status check on the PRINCIPAL lawyer's record
