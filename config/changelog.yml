@@ -4,6 +4,11 @@
 # Campos: version (obrigatório), date (dd/mm/yyyy), note (pt-BR, uma linha), pr (URL ou vazio).
 # Exposto em GET /api/v1/version.
 
+- version: "1.7"
+  date: "06/10/2026"
+  note: "Receita Federal via dump OpenCNPJ: sociedade do advogado ganha cnpj, bloco receita e partners (sócios com oab_id); GET /cnpj/:cnpj com fallback na API pública; GET /receita/companies para prospecção com filtros e cursor"
+  pr:
+
 - version: "1.6"
   date: "23/09/2026"
   note: "Entrega DJEN multi-destino: PROCSTUDIO_DESTINATIONS (base_url|token,...) com carimbo por destino em djen_deliveries; HML e produção recebem as mesmas intimações; tasks djen:deliveries:mark_delivered e reset"

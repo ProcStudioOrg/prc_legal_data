@@ -1,6 +1,6 @@
 # Plano — Enriquecimento via CNPJA
 
-Status: **plano** (nada implementado, nada gravado no banco).
+Status: **substituído** em 2026-10-06 pelo dump público do OpenCNPJ — ver `docs/superpowers/specs/2026-10-06-receita-cnpj-enrichment-design.md`. As regras de match do §2 continuam valendo e estão implementadas em `Receita::SocietyMatcher`. O cliente `Cnpja::Client` fica no repo mas não é mais o caminho principal.
 Base: dry run executado em 2026-07-26 contra o banco local (espelho do remoto, 166.261 societies).
 Token: `CNPJA` no `.env`. Header: `Authorization: <token>` (cru, sem `Bearer`).
 

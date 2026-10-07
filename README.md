@@ -229,6 +229,144 @@ PATCH  /api/v1/lawyer_societies/:id   # Update relationship (admin only)
 DELETE /api/v1/lawyer_societies/:id   # Delete relationship (admin only)
 ```
 
+## Receita Federal (OpenCNPJ)
+
+Dados de CNPJ vêm do dump público do [OpenCNPJ](https://opencnpj.org), recortado para advocacia (CNAE 6911701) e importado em `receita_companies` / `receita_partners`. Todas as rotas exigem `X-API-KEY` (leitura basta). Mudança nos nomes dos campos abaixo é mudança pública (changelog 1.7).
+
+### Confiança do vínculo sociedade ↔ CNPJ
+
+`match_confidence` (e `cnpja_match_confidence` na sociedade) assume:
+
+- `verified` — match inequívoco; só neste caso a sociedade recebe `cnpj` e os blocos `receita` / `partners` no payload do advogado.
+- `ambiguous` — mais de um candidato plausível; **nunca é promovido** automaticamente.
+- `unmatched` — sem candidato.
+
+### Sociedade no payload do advogado
+
+Cada item de `societies[]` em `GET /api/v1/lawyers/:id` (e demais respostas que usam `LawyerSerializer`) ganha `cnpj`, `receita` e `partners`. Sem match `verified`, `cnpj` e `receita` vêm `null` e `partners` vem `[]`.
+
+```json
+{
+  "id": 123,
+  "name": "Silva & Souza Advogados",
+  "cnpj": "12345678000199",
+  "receita": {
+    "situacao_cadastral": "Ativa",
+    "data_situacao_cadastral": "2015-03-02",
+    "data_inicio_atividade": "2015-03-02",
+    "natureza_juridica": "Sociedade Simples Pura",
+    "capital_social": "10000.00",
+    "porte_empresa": "Demais",
+    "opcao_simples": "N",
+    "opcao_mei": "N",
+    "email": "contato@silvasouza.adv.br",
+    "telefones": ["1133334444"],
+    "endereco": {
+      "tipo_logradouro": "RUA", "logradouro": "EXEMPLO", "numero": "100", "complemento": null,
+      "bairro": "CENTRO", "cep": "01000000", "municipio": "SAO PAULO", "uf": "SP"
+    },
+    "release": "2026-09"
+  },
+  "partners": [
+    {
+      "nome": "FULANO DE TAL",
+      "qualificacao": "Sócio-Administrador",
+      "data_entrada": "2015-03-02",
+      "faixa_etaria": "41 a 50 anos",
+      "identificador": "Pessoa Física",
+      "oab_id": "SP123456",
+      "lawyer_id": 77
+    }
+  ]
+}
+```
+
+(Os valores acima são ilustrativos; as chaves são as reais de `ReceitaCompanySerializer`.) `oab_id` / `lawyer_id` só vêm preenchidos quando o sócio foi ligado a um advogado principal com nome único na UF.
+
+### GET /api/v1/cnpj/:cnpj
+
+Consulta um CNPJ qualquer: tabela local primeiro (dump, ou cache da API), API pública do OpenCNPJ na falta. Envie os 14 caracteres limpos (sem `/`); a rota só aceita dígitos, letras, pontos e hífens, então a máscara com barra não chega ao controller. Linha vinda da API vale 30 dias; "não existe" fica em cache negativo por 7 dias; falha de rede ou 429 nunca grava nada.
+
+| Status | Corpo |
+|---|---|
+| 200 | objeto da empresa (mesmas chaves de `companies[]` abaixo) |
+| 404 | `{"error": "CNPJ não encontrado na Receita"}` |
+| 422 | `{"error": "CNPJ inválido"}` |
+| 503 | `{"error": "Receita indisponível no momento", "retry_after": <segundos ou null>}` e header `Retry-After` quando houver |
+
+### GET /api/v1/receita/companies
+
+Listagem para prospecção (só linhas do dump), ordenada por `cnpj` com cursor.
+
+| Parâmetro | Descrição |
+|---|---|
+| `uf` | **Obrigatório.** UF válida; senão 400 |
+| `situacao` | vazio = `Ativa`; `all` = sem filtro; ou o valor exato da situação cadastral |
+| `matriz` | por padrão só matrizes; `false` inclui filiais |
+| `natureza` | por padrão a lista de naturezas de sociedade de advogados; `all` = sem filtro; ou lista separada por vírgula |
+| `founded_since` | data ISO 8601 (`2026-01-01`); filtra `data_inicio_atividade >= ` |
+| `updated_since` | timestamp ISO 8601; filtra `updated_at >= `. Com offset de fuso, **URL-encode** o `+` (`%2B`); sem isso vira espaço. Prefira `Z` (`2026-10-01T00:00:00Z`) |
+| `unmatched` | `true` = só empresas sem sociedade casada (nem outra filial da mesma raiz) |
+| `known_lawyer` | `true` = só empresas com algum sócio ligado a advogado |
+| `from_cnpj` | cursor: traz `cnpj > from_cnpj` |
+| `limit` | padrão 100, máximo 500 |
+
+Datas inválidas retornam 400.
+
+```json
+{
+  "companies": [
+    {
+      "cnpj": "12345678000199",
+      "razao_social": "SILVA & SOUZA ADVOGADOS",
+      "nome_fantasia": null,
+      "matriz": true,
+      "cnae_principal": "6911701",
+      "society_id": 123,
+      "match_confidence": "verified",
+      "source": "dump",
+      "situacao_cadastral": "Ativa",
+      "...": "demais chaves do bloco receita acima",
+      "partners": [ { "nome": "FULANO DE TAL", "oab_id": null, "lawyer_id": null } ]
+    }
+  ],
+  "meta": {
+    "returned": 100,
+    "next_from_cnpj": "12345678000199",
+    "filters_applied": {
+      "uf": "SP", "limit": 100, "situacao": "Ativa", "matriz": true,
+      "natureza": ["Sociedade Unipessoal de Advocacia", "Sociedade Simples Pura", "..."], "founded_since": null, "updated_since": null,
+      "unmatched": false, "known_lawyer": false
+    }
+  }
+}
+```
+
+`next_from_cnpj` é `null` na última página; senão, repasse-o em `from_cnpj`.
+
+### Operação (carga mensal)
+
+```bash
+ssh -i ~/.ssh/deploy_prc_legal brpl@168.231.90.14
+cd ~/code/prc_legal_data   # fonte da verdade: WorkingDirectory de infra/legal_data_api.service
+RAILS_ENV=production bundle exec rake receita:refresh RELEASE=2026-09
+```
+
+Tasks (`lib/tasks/receita.rake`), todas com `RELEASE=AAAA-MM`:
+
+| Task | Variáveis |
+|---|---|
+| `receita:download` | `INFO_URL`, `MD5` opcionais; sem info.json usa a URL fixa do zip e imprime `AVISO` (MD5 não conferido) |
+| `receita:extract` | `CNAE` opcional (padrão 6911701) |
+| `receita:import` | `FILE` (NDJSON), `DRY_RUN=true` |
+| `receita:match_societies` | `STATE` opcional, `DRY_RUN=true` |
+| `receita:link_partners` | `STATE` opcional, `DRY_RUN=true` |
+| `receita:refresh` | encadeia download, extract, import, match, link e relatório |
+
+Primeira carga sem baixar o dump no servidor: extraia o NDJSON localmente, envie com `scp` para `storage/receita/<release>/advocacia.ndjson` e rode `receita:refresh`; ele pula download e extract quando o NDJSON já existe.
+
+Números da carga local de validação: 261.347 empresas e 436.441 sócios importados; 148.018 sociedades `verified` e 2.079 `ambiguous`; 156.819 sócios ligados a advogados.
+
 ## Versioning
 
 Two independent numbers, both served by `GET /api/v1/version`:
