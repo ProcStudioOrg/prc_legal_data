@@ -6,7 +6,7 @@ module Api
 
       # GET /api/v1/cnpj/:cnpj — tabela local primeiro, API pública do OpenCNPJ na falta.
       def show
-        result = Receita::CnpjLookup.call(params[:cnpj])
+        result = ::Receita::CnpjLookup.call(params[:cnpj])
 
         case result.status
         when :found

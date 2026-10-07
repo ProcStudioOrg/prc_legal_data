@@ -31,6 +31,10 @@ Rails.application.routes.draw do
       # (sem barra: o ProcStudio e o FFD mandam 14 caracteres limpos).
       get 'cnpj/:cnpj', to: 'cnpj#show', constraints: { cnpj: /[0-9A-Za-z.\-]+/ }
 
+      namespace :receita do
+        get 'companies', to: 'companies#index'
+      end
+
       # Rotas de relações advogado-sociedade
       resources :lawyer_societies, only: [:create, :show, :update, :destroy]
 
