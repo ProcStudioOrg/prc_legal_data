@@ -64,11 +64,7 @@ module Cnpja
     end
 
     def normalize(name)
-      ActiveSupport::Inflector.transliterate(name.to_s)
-                              .gsub(/[^A-Za-z ]+/, ' ')
-                              .strip
-                              .upcase
-                              .squeeze(' ')
+      Receita::NameNormalizer.call(name)
     end
   end
 end
