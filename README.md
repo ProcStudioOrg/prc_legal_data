@@ -243,7 +243,7 @@ Dados de CNPJ vêm do dump público do [OpenCNPJ](https://opencnpj.org), recorta
 
 ### Sociedade no payload do advogado
 
-Cada item de `societies[]` em `GET /api/v1/lawyers/:id` (e demais respostas que usam `LawyerSerializer`) ganha `cnpj`, `receita` e `partners`. Sem match `verified`, `cnpj` e `receita` vêm `null` e `partners` vem `[]`.
+Cada item de `societies[]` em `GET /api/v1/lawyer/:oab` (e demais respostas que usam `LawyerSerializer`) ganha `cnpj`, `receita` e `partners`. Sem match `verified`, `cnpj` e `receita` vêm `null` e `partners` vem `[]`.
 
 ```json
 {
@@ -260,7 +260,7 @@ Cada item de `societies[]` em `GET /api/v1/lawyers/:id` (e demais respostas que 
     "opcao_simples": "N",
     "opcao_mei": "N",
     "email": "contato@silvasouza.adv.br",
-    "telefones": ["1133334444"],
+    "telefones": [{ "ddd": "11", "numero": "33334444", "is_fax": false }],
     "endereco": {
       "tipo_logradouro": "RUA", "logradouro": "EXEMPLO", "numero": "100", "complemento": null,
       "bairro": "CENTRO", "cep": "01000000", "municipio": "SAO PAULO", "uf": "SP"
@@ -281,6 +281,8 @@ Cada item de `societies[]` em `GET /api/v1/lawyers/:id` (e demais respostas que 
 }
 ```
 
+`telefones` é uma lista de objetos `{ddd, numero, is_fax}` (lista vazia quando não há). `source` indica a origem da linha: `dump` (carga mensal do OpenCNPJ) ou `opencnpj_api` (consulta pontual em `GET /cnpj/:cnpj`, cache de 30 dias).
+
 (Os valores acima são ilustrativos; as chaves são as reais de `ReceitaCompanySerializer`.) `oab_id` / `lawyer_id` só vêm preenchidos quando o sócio foi ligado a um advogado principal com nome único na UF.
 
 ### GET /api/v1/cnpj/:cnpj
@@ -292,7 +294,7 @@ Consulta um CNPJ qualquer: tabela local primeiro (dump, ou cache da API), API p�
 | 200 | objeto da empresa (mesmas chaves de `companies[]` abaixo) |
 | 404 | `{"error": "CNPJ não encontrado na Receita"}` |
 | 422 | `{"error": "CNPJ inválido"}` |
-| 503 | `{"error": "Receita indisponível no momento", "retry_after": <segundos ou null>}` e header `Retry-After` quando houver |
+| 503 | `{"error": "Receita indisponível no momento", "retry_after": <segundos ou null>}` e header `Retry-After` quando houver. Após uma falha da API (timeout, erro, 429) o lookup fica 60 s sem consultá-la (`retry_after: 60`); linhas já na tabela seguem sendo servidas |
 
 ### GET /api/v1/receita/companies
 
@@ -342,6 +344,8 @@ Datas inválidas retornam 400.
 }
 ```
 
+`filters_applied.natureza` é o array de naturezas efetivamente aplicado, ou a string `"all"` quando `natureza=all` (sem filtro). `source` de cada item é sempre `dump` nesta listagem.
+
 `next_from_cnpj` é `null` na última página; senão, repasse-o em `from_cnpj`.
 
 ### Operação (carga mensal)
@@ -357,7 +361,7 @@ tail -f storage/receita/2026-09/refresh.log
 
 O refresh dura horas (download e extração de ~124 GB): rode sempre sob `nohup` (ou tmux), nunca numa sessão SSH solta. Reexecutar é seguro: empresas sem mudança são puladas e sociedades `verified` não são recasadas. Falha em qualquer etapa também envia o relatório ao painel, com o campo `error`. Se o MD5 do download divergir, o `.part` é removido e o download recomeça do zero na próxima execução.
 
-Tasks (`lib/tasks/receita.rake`), todas com `RELEASE=AAAA-MM`:
+Tasks (`lib/tasks/receita.rake`), todas com `RELEASE=AAAA-MM` (`receita:refresh` exige só `RELEASE` e não tem `DRY_RUN`, `STATE` nem `FILE`; `CNAE`, `INFO_URL` e `MD5` do ambiente chegam às etapas de extract e download):
 
 | Task | Variáveis |
 |---|---|
