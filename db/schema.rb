@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_23_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_06_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -135,6 +135,72 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_23_120000) do
     t.index ["has_society"], name: "index_lawyers_on_has_society"
     t.index ["oab_id"], name: "index_lawyers_on_oab_id", unique: true
     t.index ["principal_lawyer_id"], name: "index_lawyers_on_principal_lawyer_id"
+  end
+
+  create_table "receita_companies", force: :cascade do |t|
+    t.string "bairro"
+    t.decimal "capital_social", precision: 15, scale: 2
+    t.string "cep"
+    t.string "cnae_principal"
+    t.string "cnpj", limit: 14, null: false
+    t.string "cnpj_root", limit: 8, null: false
+    t.string "codigo_municipio"
+    t.string "complemento"
+    t.datetime "created_at", null: false
+    t.date "data_inicio_atividade"
+    t.date "data_opcao_simples"
+    t.date "data_situacao_cadastral"
+    t.string "email"
+    t.datetime "fetched_at", null: false
+    t.string "logradouro"
+    t.string "match_confidence"
+    t.datetime "matched_at"
+    t.boolean "matriz", default: true, null: false
+    t.string "motivo_situacao"
+    t.string "municipio"
+    t.string "name_normalized"
+    t.string "natureza_juridica"
+    t.string "nome_fantasia"
+    t.string "numero"
+    t.string "opcao_mei"
+    t.string "opcao_simples"
+    t.string "porte_empresa"
+    t.jsonb "raw", default: {}, null: false
+    t.string "razao_social"
+    t.string "release"
+    t.string "situacao_cadastral"
+    t.bigint "society_id"
+    t.string "source", default: "dump", null: false
+    t.jsonb "telefones", default: [], null: false
+    t.string "tipo_logradouro"
+    t.string "uf"
+    t.datetime "updated_at", null: false
+    t.index ["cnpj"], name: "index_receita_companies_on_cnpj", unique: true
+    t.index ["cnpj_root"], name: "index_receita_companies_on_cnpj_root"
+    t.index ["data_inicio_atividade"], name: "index_receita_companies_on_data_inicio_atividade"
+    t.index ["natureza_juridica"], name: "index_receita_companies_on_natureza_juridica"
+    t.index ["society_id"], name: "index_receita_companies_on_society_id"
+    t.index ["uf", "name_normalized"], name: "index_receita_companies_on_uf_and_name_normalized"
+    t.index ["updated_at"], name: "index_receita_companies_on_updated_at"
+  end
+
+  create_table "receita_partners", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.date "data_entrada_sociedade"
+    t.string "documento"
+    t.string "faixa_etaria"
+    t.string "first_seen_release"
+    t.string "identificador"
+    t.string "last_seen_release"
+    t.bigint "lawyer_id"
+    t.string "name_normalized"
+    t.string "nome_socio"
+    t.string "qualificacao"
+    t.bigint "receita_company_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["lawyer_id"], name: "index_receita_partners_on_lawyer_id"
+    t.index ["name_normalized"], name: "index_receita_partners_on_name_normalized"
+    t.index ["receita_company_id", "name_normalized", "documento"], name: "index_receita_partners_unique_member", unique: true
   end
 
   create_table "societies", force: :cascade do |t|
@@ -312,6 +378,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_23_120000) do
   add_foreign_key "lawyer_societies", "lawyers"
   add_foreign_key "lawyer_societies", "societies"
   add_foreign_key "lawyers", "lawyers", column: "principal_lawyer_id"
+  add_foreign_key "receita_companies", "societies"
+  add_foreign_key "receita_partners", "lawyers"
+  add_foreign_key "receita_partners", "receita_companies"
   add_foreign_key "solid_queue_blocked_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_claimed_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade
   add_foreign_key "solid_queue_failed_executions", "solid_queue_jobs", column: "job_id", on_delete: :cascade

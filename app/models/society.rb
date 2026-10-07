@@ -2,6 +2,8 @@
 class Society < ApplicationRecord
   has_many :lawyer_societies, dependent: :destroy
   has_many :lawyers, through: :lawyer_societies
+  # Estabelecimento da Receita casado com confiança verified (Receita::SocietyMatcher).
+  has_one :receita_company, dependent: :nullify
 
   OAB_PORTAL = 'oab_portal'
 

@@ -6,6 +6,7 @@ class Lawyer < ApplicationRecord
   has_many :lawyer_societies, dependent: :destroy
   has_many :societies, through: :lawyer_societies
   has_one :djen_monitoring, dependent: :destroy
+  has_many :receita_partners, dependent: :nullify
 
   # Define attributes for society_basic_details JSON field
   store_accessor :society_basic_details, :insc, :nome_soci, :idt_soci, :sigla_uf, :url
