@@ -9,7 +9,7 @@ RSpec.describe 'bin/receita_extract.sh' do
       system('zip', '-q', '-j', File.join(dir, 'data.zip'), File.join(dir, '001.ndjson'), File.join(dir, '002.ndjson'), File.join(dir, '003.ndjson')) || skip('zip indisponível')
 
       out = File.join(dir, 'advocacia.ndjson')
-      stdout = IO.popen([Rails.root.join('bin/receita_extract.sh').to_s, File.join(dir, 'data.zip'), out, '6911701'], &:read)
+      stdout = IO.popen([ Rails.root.join('bin/receita_extract.sh').to_s, File.join(dir, 'data.zip'), out, '6911701' ], &:read)
       ok = $?.success?
 
       expect(ok).to be(true)

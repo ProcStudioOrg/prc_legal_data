@@ -6,12 +6,12 @@ module Receita
   # cada caractere vale `ord - 48` no cálculo, e os 2 verificadores continuam
   # numéricos. Letras sobem para caixa alta antes de validar.
   module Cnpj
-    WEIGHTS_FIRST = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2].freeze
-    WEIGHTS_SECOND = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2].freeze
+    WEIGHTS_FIRST = [ 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2 ].freeze
+    WEIGHTS_SECOND = [ 6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2 ].freeze
     FORMAT = /\A[0-9A-Z]{12}\d{2}\z/
 
     def self.normalize(input)
-      value = input.to_s.gsub(/[^0-9A-Za-z]/, '').upcase
+      value = input.to_s.gsub(/[^0-9A-Za-z]/, "").upcase
       return nil unless value.match?(FORMAT)
       return nil if value.chars.uniq.size == 1
 
@@ -21,7 +21,7 @@ module Receita
     def self.valid?(value)
       base = value[0, 12].chars.map { |c| c.ord - 48 }
       first = check_digit(base, WEIGHTS_FIRST)
-      second = check_digit(base + [first], WEIGHTS_SECOND)
+      second = check_digit(base + [ first ], WEIGHTS_SECOND)
       value[12, 2] == "#{first}#{second}"
     end
 

@@ -8,7 +8,7 @@ class ReceitaPartner < ApplicationRecord
   belongs_to :receita_company
   belongs_to :lawyer, optional: true
 
-  PESSOA_FISICA = 'Pessoa Física'
+  PESSOA_FISICA = "Pessoa Física"
 
   scope :pessoa_fisica, -> { where(identificador: PESSOA_FISICA) }
   scope :linked, -> { where.not(lawyer_id: nil) }

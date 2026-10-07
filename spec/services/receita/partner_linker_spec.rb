@@ -39,7 +39,7 @@ RSpec.describe Receita::PartnerLinker do
     stats = run
     expect(stats[:linked]).to eq(1)
     expect(pf.reload.lawyer_id).to eq(principal.id)
-    expect([pj, sp].map { |p| p.reload.lawyer_id }).to eq([nil, nil])
+    expect([ pj, sp ].map { |p| p.reload.lawyer_id }).to eq([ nil, nil ])
     expect(already.reload.lawyer_id).not_to eq(principal.id)
   end
 

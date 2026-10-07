@@ -29,7 +29,7 @@ class ReceitaCompanySerializer
       data_situacao_cadastral: c.data_situacao_cadastral&.iso8601,
       data_inicio_atividade: c.data_inicio_atividade&.iso8601,
       natureza_juridica: c.natureza_juridica,
-      capital_social: c.capital_social && format('%.2f', c.capital_social),
+      capital_social: c.capital_social && format("%.2f", c.capital_social),
       porte_empresa: c.porte_empresa,
       opcao_simples: c.opcao_simples,
       opcao_mei: c.opcao_mei,

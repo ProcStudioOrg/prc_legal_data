@@ -7,8 +7,8 @@ RSpec.describe Receita::CnpjLookup do
     { 'cnpj' => cnpj, 'razao_social' => 'FIRMA DA API LTDA', 'situacao_cadastral' => 'Ativa', 'matriz_filial' => 'Matriz',
       'data_inicio_atividade' => '2020-01-10', 'cnae_principal' => '6911701', 'natureza_juridica' => 'Sociedade Simples Pura',
       'uf' => 'SP', 'municipio' => 'SAO PAULO', 'email' => 'x@y.com', 'telefones' => [], 'capital_social' => '1000,00',
-      'QSA' => [{ 'nome_socio' => 'SOCIA UM', 'cnpj_cpf_socio' => '***111222**', 'qualificacao_socio' => 'Sócio-Administrador',
-                  'data_entrada_sociedade' => '2020-01-10', 'identificador_socio' => 'Pessoa Física', 'faixa_etaria' => '41 a 50 anos' }] }
+      'QSA' => [ { 'nome_socio' => 'SOCIA UM', 'cnpj_cpf_socio' => '***111222**', 'qualificacao_socio' => 'Sócio-Administrador',
+                  'data_entrada_sociedade' => '2020-01-10', 'identificador_socio' => 'Pessoa Física', 'faixa_etaria' => '41 a 50 anos' } ] }
   end
 
   it 'devolve invalid para CNPJ com dígito errado sem chamar a API' do

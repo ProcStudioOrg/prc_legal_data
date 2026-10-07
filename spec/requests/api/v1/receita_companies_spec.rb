@@ -28,7 +28,7 @@ RSpec.describe 'Api::V1::Receita::Companies', type: :request do
     b = create(:receita_company, uf: 'PR', cnpj: '10000000000600')
 
     body = get_companies(uf: 'pr')
-    expect(body['companies'].map { |c| c['cnpj'] }).to eq([a.cnpj, b.cnpj])
+    expect(body['companies'].map { |c| c['cnpj'] }).to eq([ a.cnpj, b.cnpj ])
     expect(body['meta']['returned']).to eq(2)
     expect(body['meta']['next_from_cnpj']).to be_nil
   end
@@ -46,15 +46,15 @@ RSpec.describe 'Api::V1::Receita::Companies', type: :request do
     expect(cnpjs).not_to include(matched.cnpj)
 
     cnpjs = get_companies(uf: 'PR', known_lawyer: 'true')['companies'].map { |c| c['cnpj'] }
-    expect(cnpjs).to eq([prospect.cnpj])
+    expect(cnpjs).to eq([ prospect.cnpj ])
   end
 
   it 'filtra por founded_since, natureza e updated_since' do
     nova = create(:receita_company, uf: 'PR', data_inicio_atividade: Date.new(2026, 9, 1), natureza_juridica: 'Sociedade Unipessoal de Advocacia')
     create(:receita_company, uf: 'PR', data_inicio_atividade: Date.new(2015, 1, 1))
 
-    expect(get_companies(uf: 'PR', founded_since: '2026-01-01')['companies'].map { |c| c['cnpj'] }).to eq([nova.cnpj])
-    expect(get_companies(uf: 'PR', natureza: 'Sociedade Unipessoal de Advocacia')['companies'].map { |c| c['cnpj'] }).to eq([nova.cnpj])
+    expect(get_companies(uf: 'PR', founded_since: '2026-01-01')['companies'].map { |c| c['cnpj'] }).to eq([ nova.cnpj ])
+    expect(get_companies(uf: 'PR', natureza: 'Sociedade Unipessoal de Advocacia')['companies'].map { |c| c['cnpj'] }).to eq([ nova.cnpj ])
     expect(get_companies(uf: 'PR', updated_since: 1.hour.from_now.iso8601)['companies']).to eq([])
   end
 
@@ -81,7 +81,7 @@ RSpec.describe 'Api::V1::Receita::Companies', type: :request do
     create(:receita_company, uf: 'PR', cnpj: '10000000000100')
     baixada = create(:receita_company, uf: 'PR', cnpj: '10000000000200', situacao_cadastral: 'Baixada')
 
-    expect(get_companies(uf: 'PR', situacao: 'Baixada')['companies'].map { |c| c['cnpj'] }).to eq([baixada.cnpj])
+    expect(get_companies(uf: 'PR', situacao: 'Baixada')['companies'].map { |c| c['cnpj'] }).to eq([ baixada.cnpj ])
   end
 
   it 'natureza=all não filtra e reporta all em filters_applied' do

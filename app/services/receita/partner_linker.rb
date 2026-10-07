@@ -20,7 +20,7 @@ module Receita
       ReceitaPartner.pessoa_fisica.unlinked
                     .joins(:receita_company)
                     .where(receita_companies: { uf: @state }, last_seen_release: @release)
-                    .where.not(name_normalized: [nil, ''])
+                    .where.not(name_normalized: [ nil, "" ])
                     .in_batches(of: 5000) do |batch|
         updates = Hash.new { |h, k| h[k] = [] }
         batch.pluck(:id, :name_normalized).each do |partner_id, name|

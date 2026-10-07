@@ -7,10 +7,10 @@ module Receita
   module NameNormalizer
     def self.call(name)
       ActiveSupport::Inflector.transliterate(name.to_s)
-                              .gsub(/[^A-Za-z ]+/, ' ')
+                              .gsub(/[^A-Za-z ]+/, " ")
                               .strip
                               .upcase
-                              .squeeze(' ')
+                              .squeeze(" ")
     end
   end
 end

@@ -51,7 +51,7 @@ module Receita
       end
 
       Importer.new(file: nil, release: nil, source: ReceitaCompany::SOURCE_API, logger: Rails.logger)
-              .import_records([record.merge('cnpj' => @cnpj)])
+              .import_records([ record.merge("cnpj" => @cnpj) ])
       Result.new(status: :found, company: ReceitaCompany.find_by!(cnpj: @cnpj))
     rescue OpencnpjClient::RateLimited => e
       Result.new(status: :unavailable, retry_after: e.retry_after)
@@ -63,8 +63,8 @@ module Receita
     def store_negative
       now = Time.current
       ReceitaCompany.upsert_all(
-        [{ cnpj: @cnpj, cnpj_root: @cnpj[0, 8], raw: {}, source: ReceitaCompany::SOURCE_API, release: nil,
-           fetched_at: now, created_at: now, updated_at: now, telefones: [] }],
+        [ { cnpj: @cnpj, cnpj_root: @cnpj[0, 8], raw: {}, source: ReceitaCompany::SOURCE_API, release: nil,
+           fetched_at: now, created_at: now, updated_at: now, telefones: [] } ],
         unique_by: :index_receita_companies_on_cnpj,
         update_only: %i[raw source release fetched_at]
       )

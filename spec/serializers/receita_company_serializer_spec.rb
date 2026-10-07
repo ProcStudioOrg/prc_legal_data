@@ -16,7 +16,7 @@ RSpec.describe ReceitaCompanySerializer do
       situacao_cadastral: 'Ativa', data_situacao_cadastral: nil, data_inicio_atividade: '2019-03-04',
       natureza_juridica: 'Sociedade Simples Pura', capital_social: '10000.00', porte_empresa: 'Micro Empresa (ME)',
       opcao_simples: 'S', opcao_mei: nil, email: 'contato@firma.adv.br',
-      telefones: [{ 'ddd' => '45', 'numero' => '30355898', 'is_fax' => false }],
+      telefones: [ { 'ddd' => '45', 'numero' => '30355898', 'is_fax' => false } ],
       endereco: { tipo_logradouro: 'RUA', logradouro: 'PARANA', numero: '3056', complemento: 'SALA 2', bairro: 'CENTRO',
                   cep: '85810010', municipio: 'CASCAVEL', uf: 'PR' },
       release: '2026-08'

@@ -10,7 +10,7 @@ RSpec.describe Receita::RowMapper do
       'natureza_juridica' => 'Sociedade Simples Pura',
       'tipo_logradouro' => 'RUA', 'logradouro' => 'PARANA', 'numero' => '3056', 'complemento' => 'SALA 2',
       'bairro' => 'CENTRO', 'cep' => '85810010', 'uf' => 'PR', 'municipio' => 'CASCAVEL', 'codigo_municipio' => '7497',
-      'email' => 'ADV5898S@GMAIL.COM', 'telefones' => [{ 'ddd' => '45', 'numero' => '30355898', 'is_fax' => false }],
+      'email' => 'ADV5898S@GMAIL.COM', 'telefones' => [ { 'ddd' => '45', 'numero' => '30355898', 'is_fax' => false } ],
       'capital_social' => '10000,00', 'porte_empresa' => 'Micro Empresa (ME)',
       'opcao_simples' => 'S', 'data_opcao_simples' => '2019-03-04', 'opcao_mei' => 'N',
       'motivo_situacao_cadastral' => { 'codigo' => '00', 'descricao' => 'SEM MOTIVO' },

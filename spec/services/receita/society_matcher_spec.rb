@@ -99,8 +99,8 @@ RSpec.describe Receita::SocietyMatcher do
     stats = run
     expect(stats[:verified]).to eq(1)
     expect(stats[:ambiguous_cnpj_taken]).to eq(1)
-    expect([first.reload.cnpj, second.reload.cnpj].compact).to eq([company.cnpj])
-    expect([first.cnpja_match_confidence, second.cnpja_match_confidence]).to contain_exactly('verified', 'ambiguous')
+    expect([ first.reload.cnpj, second.reload.cnpj ].compact).to eq([ company.cnpj ])
+    expect([ first.cnpja_match_confidence, second.cnpja_match_confidence ]).to contain_exactly('verified', 'ambiguous')
   end
 
   it 'sociedade já verified só ganha cnpja_synced_at novo' do

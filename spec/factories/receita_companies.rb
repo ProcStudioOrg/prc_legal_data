@@ -17,7 +17,7 @@ FactoryBot.define do
     uf { 'PR' }
     municipio { 'CASCAVEL' }
     email { 'contato@firma.adv.br' }
-    telefones { [{ 'ddd' => '45', 'numero' => '30355898', 'is_fax' => false }] }
+    telefones { [ { 'ddd' => '45', 'numero' => '30355898', 'is_fax' => false } ] }
     capital_social { 10_000 }
     porte_empresa { 'Micro Empresa (ME)' }
     opcao_simples { 'S' }

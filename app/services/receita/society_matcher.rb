@@ -14,9 +14,9 @@ module Receita
   #
   # Só verified grava societies.cnpj. Nunca promove ambiguous.
   class SocietyMatcher
-    VERIFIED = 'verified'
-    AMBIGUOUS = 'ambiguous'
-    UNMATCHED = 'unmatched'
+    VERIFIED = "verified"
+    AMBIGUOUS = "ambiguous"
+    UNMATCHED = "unmatched"
     MIN_PARTNERS_WITHOUT_NAME = 2
 
     Candidate = Struct.new(:id, :cnpj, :root, :name, :matriz, :ativa, :partners, keyword_init: true)
@@ -69,7 +69,7 @@ module Receita
       ReceitaCompany.where(uf: @state).from_dump
                     .pluck(:id, :cnpj, :cnpj_root, :name_normalized, :matriz, :situacao_cadastral)
                     .each do |id, cnpj, root, name, matriz, situacao|
-        c = Candidate.new(id: id, cnpj: cnpj, root: root, name: name, matriz: matriz, ativa: situacao == 'Ativa', partners: {})
+        c = Candidate.new(id: id, cnpj: cnpj, root: root, name: name, matriz: matriz, ativa: situacao == "Ativa", partners: {})
         @by_id[id] = c
         @by_name[name] << c if name.present?
       end
@@ -96,7 +96,7 @@ module Receita
         next if hits.empty?
         next unless c.name == society_name || hits.size >= MIN_PARTNERS_WITHOUT_NAME
 
-        [c, hits]
+        [ c, hits ]
       end
 
       if strong.empty?
@@ -110,10 +110,10 @@ module Receita
         return
       end
 
-      pick, hits = strong.min_by { |c, _| [c.matriz ? 0 : 1, c.ativa ? 0 : 1, c.cnpj] }
+      pick, hits = strong.min_by { |c, _| [ c.matriz ? 0 : 1, c.ativa ? 0 : 1, c.cnpj ] }
       if taken_cnpjs.include?(pick.cnpj)
         @stats[:ambiguous_cnpj_taken] += 1
-        mark_ambiguous(society, [pick])
+        mark_ambiguous(society, [ pick ])
         return
       end
 

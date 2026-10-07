@@ -50,7 +50,7 @@ class CreateReceitaCompanies < ActiveRecord::Migration[8.1]
 
     add_index :receita_companies, :cnpj, unique: true
     add_index :receita_companies, :cnpj_root
-    add_index :receita_companies, [:uf, :name_normalized]
+    add_index :receita_companies, [ :uf, :name_normalized ]
     add_index :receita_companies, :data_inicio_atividade
     add_index :receita_companies, :natureza_juridica
     add_index :receita_companies, :updated_at
@@ -71,7 +71,7 @@ class CreateReceitaCompanies < ActiveRecord::Migration[8.1]
       t.timestamps
     end
 
-    add_index :receita_partners, [:receita_company_id, :name_normalized, :documento],
+    add_index :receita_partners, [ :receita_company_id, :name_normalized, :documento ],
               unique: true, name: 'index_receita_partners_unique_member'
     add_index :receita_partners, :name_normalized
   end
