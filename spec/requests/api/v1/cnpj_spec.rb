@@ -40,6 +40,7 @@ RSpec.describe 'Api::V1::Cnpj', type: :request do
     stub_request(:get, 'https://api.opencnpj.org/11222333000181').to_return(status: 429, headers: { 'Retry-After' => '45' })
     get '/api/v1/cnpj/11222333000181', headers: headers
     expect(response).to have_http_status(:service_unavailable)
+    expect(response.headers['Retry-After']).to eq('45')
     expect(response.parsed_body).to include('error' => 'Receita indisponível no momento', 'retry_after' => 45)
   end
 end

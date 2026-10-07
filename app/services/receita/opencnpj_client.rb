@@ -31,13 +31,23 @@ module Receita
       end
 
       case response
-      when Net::HTTPSuccess then JSON.parse(response.body)
+      when Net::HTTPSuccess then parse_body(response.body)
       when Net::HTTPNotFound then nil
       when Net::HTTPTooManyRequests then raise RateLimited, response['Retry-After'].to_i.clamp(1, 3600)
       else raise Error, "OpenCNPJ HTTP #{response.code}"
       end
-    rescue JSON::ParserError, Net::OpenTimeout, Net::ReadTimeout, SocketError, Errno::ECONNREFUSED, OpenSSL::SSL::SSLError => e
+    rescue JSON::ParserError, Net::OpenTimeout, Net::ReadTimeout, SocketError, SystemCallError, IOError, EOFError,
+           Net::ProtocolError, Net::HTTPBadResponse, OpenSSL::SSL::SSLError => e
       raise Error, "#{e.class}: #{e.message}"
+    end
+
+    private
+
+    def parse_body(body)
+      parsed = JSON.parse(body)
+      raise Error, 'OpenCNPJ: corpo inesperado' unless parsed.is_a?(Hash)
+
+      parsed
     end
   end
 end

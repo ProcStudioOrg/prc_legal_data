@@ -72,4 +72,16 @@ RSpec.describe Receita::CnpjLookup do
     expect(described_class.call(cnpj).status).to eq(:unavailable)
     expect(ReceitaCompany.where(cnpj: cnpj)).to be_empty
   end
+
+  it 'erro de conexão fora da lista clássica vira unavailable sem gravar nada' do
+    stub_request(:get, api_url).to_raise(Errno::ECONNRESET)
+    expect(described_class.call(cnpj).status).to eq(:unavailable)
+    expect(ReceitaCompany.where(cnpj: cnpj)).to be_empty
+  end
+
+  it 'corpo 200 que não é objeto JSON vira unavailable sem gravar nada' do
+    stub_request(:get, api_url).to_return(status: 200, body: '[]')
+    expect(described_class.call(cnpj).status).to eq(:unavailable)
+    expect(ReceitaCompany.where(cnpj: cnpj)).to be_empty
+  end
 end
