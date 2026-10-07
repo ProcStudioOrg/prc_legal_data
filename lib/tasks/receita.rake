@@ -2,6 +2,7 @@
 
 require 'net/http'
 require 'fileutils'
+require 'digest'
 
 # Receita Federal via dump OpenCNPJ (recorte CNAE 6911701, advocacia).
 #
@@ -52,26 +53,60 @@ namespace :receita do
     Rails.root.join('storage', 'receita', release).tap { |d| FileUtils.mkdir_p(d) }
   end
 
-  desc 'Baixa o data.zip do OpenCNPJ (retomável) e confere o MD5 do info.json'
+  DEFAULT_INFO_URL = 'https://api.opencnpj.org/info.json'
+  FALLBACK_ZIP_URL = 'https://file.opencnpj.org/releases/receita/data.zip'
+
+  # Busca o info.json; devolve o hash `datasets.receita` ou nil se indisponível.
+  def self.fetch_receita_info(url)
+    uri = URI(url)
+    response = Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == 'https', open_timeout: 10, read_timeout: 30) do |http|
+      http.get(uri.request_uri)
+    end
+    return nil unless response.is_a?(Net::HTTPSuccess)
+
+    info = JSON.parse(response.body)
+    receita = info.dig('datasets', 'receita')
+    return nil unless receita.is_a?(Hash) && receita['zip_md5checksum'].present?
+
+    [info, receita]
+  rescue StandardError => e # rede, timeout, JSON inválido: cai no fallback
+    warn "info.json: #{e.class}: #{e.message}"
+    nil
+  end
+
+  desc 'Baixa o data.zip do OpenCNPJ (retomável) e confere o MD5 (INFO_URL e MD5 sobrescrevem)'
   task download: :environment do
     release = ENV.fetch('RELEASE')
     dir = release_dir(release)
-    info = JSON.parse(Net::HTTP.get(URI('https://api.opencnpj.org/info.json')))
-    receita = info.fetch('datasets').fetch('receita')
-    zip = dir.join('data.zip')
+    info, receita = fetch_receita_info(ENV.fetch('INFO_URL', DEFAULT_INFO_URL))
+    url = receita ? receita.fetch('zip_url', FALLBACK_ZIP_URL) : FALLBACK_ZIP_URL
+    expected = ENV['MD5'].presence || receita&.fetch('zip_md5checksum')
+    puts 'AVISO: info.json indisponível — MD5 não conferido' if expected.blank?
 
-    sh "curl -fL -C - --retry 5 -o #{zip} #{receita.fetch('zip_url')}"
-    actual = `md5sum #{zip} 2>/dev/null || md5 -q #{zip}`.split.first
-    abort "MD5 divergente: esperado #{receita['zip_md5checksum']}, obtido #{actual}" unless actual == receita['zip_md5checksum']
-    File.write(dir.join('info.json'), JSON.pretty_generate(info))
-    puts "FIM download release=#{release} bytes=#{File.size(zip)} md5=ok"
+    zip = dir.join('data.zip')
+    part = dir.join('data.zip.part')
+    sh 'curl', '-fL', '-C', '-', '--retry', '5', '-o', part.to_s, url
+
+    if expected.present?
+      actual = Digest::MD5.file(part).hexdigest
+      abort "MD5 divergente: esperado #{expected}, obtido #{actual}" unless actual.casecmp?(expected)
+    end
+    FileUtils.mv(part, zip)
+    File.write(dir.join('info.json'), JSON.pretty_generate(info)) if info
+    puts "FIM download release=#{release} bytes=#{File.size(zip)} md5=#{expected.present? ? 'ok' : 'nao_conferido'}"
   end
 
   desc 'Extrai o recorte de advocacia do data.zip da release'
   task extract: :environment do
     release = ENV.fetch('RELEASE')
     dir = release_dir(release)
-    sh Rails.root.join('bin/receita_extract.sh').to_s, dir.join('data.zip').to_s, dir.join('advocacia.ndjson').to_s, ENV.fetch('CNAE', '6911701')
+    ndjson = dir.join('advocacia.ndjson')
+    tmp = dir.join('advocacia.ndjson.tmp')
+    FileUtils.rm_f(tmp)
+
+    sh Rails.root.join('bin/receita_extract.sh').to_s, dir.join('data.zip').to_s, tmp.to_s, ENV.fetch('CNAE', '6911701')
+    abort 'Extração vazia: advocacia.ndjson não gerado' unless File.exist?(tmp) && File.size(tmp).positive?
+    FileUtils.mv(tmp, ndjson)
   end
 
   desc 'Refresh completo de uma release: download, extract, import, match, link, relatório, limpeza'
@@ -84,6 +119,7 @@ namespace :receita do
       Rake::Task['receita:download'].invoke unless File.exist?(dir.join('data.zip'))
       Rake::Task['receita:extract'].invoke
     end
+    abort "#{ndjson} vazio ou ausente" unless File.exist?(ndjson) && File.size(ndjson).positive?
 
     stats = {}
     stats[:import] = Receita::Importer.new(file: ndjson, release: release, logger: Logger.new($stdout)).call
@@ -98,6 +134,9 @@ namespace :receita do
 
     FileUtils.rm_f(dir.join('data.zip'))
     Dir.glob(Rails.root.join('storage', 'receita', '*')).each do |old|
+      name = File.basename(old)
+      next if name == release || !File.directory?(old) || !name.match?(/\A\d{4}-\d{2}\z/)
+
       FileUtils.rm_rf(old) if File.mtime(old) < 3.months.ago
     end
 
