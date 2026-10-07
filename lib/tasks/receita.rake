@@ -15,4 +15,18 @@ namespace :receita do
     stats = Receita::Importer.new(file: file, release: release, dry_run: dry_run, logger: Logger.new($stdout)).call
     puts "FIM import release=#{release} #{stats.map { |k, v| "#{k}=#{v}" }.join(' ')}"
   end
+
+  desc 'Casa sociedades OAB com estabelecimentos da Receita (STATE=PR ou todos) e grava cnpj só com verified'
+  task match_societies: :environment do
+    release = ENV.fetch('RELEASE')
+    dry_run = ENV['DRY_RUN'] == 'true'
+    states = ENV['STATE'].present? ? [ENV['STATE'].upcase] : Society.distinct.pluck(:state).compact.sort
+
+    total = Hash.new(0)
+    states.each do |state|
+      stats = Receita::SocietyMatcher.new(state: state, release: release, dry_run: dry_run, logger: Logger.new($stdout)).call
+      stats.each { |k, v| total[k] += v }
+    end
+    puts "FIM match release=#{release} #{total.map { |k, v| "#{k}=#{v}" }.join(' ')}"
+  end
 end
