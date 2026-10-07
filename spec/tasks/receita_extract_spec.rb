@@ -28,4 +28,26 @@ RSpec.describe 'bin/receita_extract.sh' do
       expect(File.exist?(out)).to be(false)
     end
   end
+
+  it 'aborta e não gera saída quando um shard está corrompido' do
+    Dir.mktmpdir do |dir|
+      member = File.join(dir, '001.ndjson')
+      rng = Random.new(1)
+      File.write(member, Array.new(200) { |i| { n: i, cnae_principal: '6911701', x: rng.rand }.to_json }.join("\n") + "\n")
+      zip = File.join(dir, 'data.zip')
+      system('zip', '-q', '-j', zip, member) || skip('zip indisponível')
+
+      # Estraga o fluxo deflate (logo após o cabeçalho local); a lista de membros segue legível.
+      bytes = File.binread(zip)
+      (60...100).each { |i| bytes.setbyte(i, bytes.getbyte(i) ^ 0xFF) }
+      File.binwrite(zip, bytes)
+
+      out = File.join(dir, 'advocacia.ndjson')
+      ok = system(Rails.root.join('bin/receita_extract.sh').to_s, zip, out, '6911701', out: File::NULL, err: File::NULL)
+
+      expect(ok).to be(false)
+      expect(File.exist?(out)).to be(false)
+      expect(File.exist?("#{out}.tmp")).to be(false)
+    end
+  end
 end

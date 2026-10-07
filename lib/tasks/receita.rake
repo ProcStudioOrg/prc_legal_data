@@ -89,7 +89,10 @@ namespace :receita do
 
     if expected.present?
       actual = Digest::MD5.file(part).hexdigest
-      abort "MD5 divergente: esperado #{expected}, obtido #{actual}" unless actual.casecmp?(expected)
+      unless actual.casecmp?(expected)
+        FileUtils.rm_f(part) # senão o próximo curl -C - retomaria o arquivo corrompido para sempre
+        abort "MD5 divergente: esperado #{expected}, obtido #{actual}. Arquivo parcial removido; rode o download de novo."
+      end
     end
     FileUtils.mv(part, zip)
     File.write(dir.join("info.json"), JSON.pretty_generate(info)) if info
@@ -115,32 +118,42 @@ namespace :receita do
     dir = release_dir(release)
     ndjson = dir.join("advocacia.ndjson")
 
-    unless File.exist?(ndjson)
-      Rake::Task["receita:download"].invoke unless File.exist?(dir.join("data.zip"))
-      Rake::Task["receita:extract"].invoke
-    end
-    abort "#{ndjson} vazio ou ausente" unless File.exist?(ndjson) && File.size(ndjson).positive?
-
     stats = {}
-    stats[:import] = Receita::Importer.new(file: ndjson, release: release, logger: Logger.new($stdout)).call
-    stats[:match] = Hash.new(0)
-    stats[:link] = Hash.new(0)
-    Society.distinct.pluck(:state).compact.sort.each do |state|
-      Receita::SocietyMatcher.new(state: state, release: release, logger: Logger.new($stdout)).call.each { |k, v| stats[:match][k] += v }
-    end
-    ReceitaCompany.distinct.pluck(:uf).compact.sort.each do |uf|
-      Receita::PartnerLinker.new(state: uf, release: release, logger: Logger.new($stdout)).call.each { |k, v| stats[:link][k] += v }
-    end
+    begin
+      unless File.exist?(ndjson)
+        Rake::Task["receita:download"].invoke unless File.exist?(dir.join("data.zip"))
+        Rake::Task["receita:extract"].invoke
+      end
+      abort "#{ndjson} vazio ou ausente" unless File.exist?(ndjson) && File.size(ndjson).positive?
 
-    FileUtils.rm_f(dir.join("data.zip"))
-    Dir.glob(Rails.root.join("storage", "receita", "*")).each do |old|
-      name = File.basename(old)
-      next if name == release || !File.directory?(old) || !name.match?(/\A\d{4}-\d{2}\z/)
+      stats[:import] = Receita::Importer.new(file: ndjson, release: release, logger: Logger.new($stdout)).call
+      stats[:match] = Hash.new(0)
+      stats[:link] = Hash.new(0)
+      Society.distinct.pluck(:state).compact.sort.each do |state|
+        Receita::SocietyMatcher.new(state: state, release: release, logger: Logger.new($stdout)).call.each { |k, v| stats[:match][k] += v }
+      end
+      ReceitaCompany.distinct.pluck(:uf).compact.sort.each do |uf|
+        Receita::PartnerLinker.new(state: uf, release: release, logger: Logger.new($stdout)).call.each { |k, v| stats[:link][k] += v }
+      end
 
-      FileUtils.rm_rf(old) if File.mtime(old) < 3.months.ago
+      FileUtils.rm_f(dir.join("data.zip"))
+      Dir.glob(Rails.root.join("storage", "receita", "*")).each do |old|
+        name = File.basename(old)
+        next if name == release || !File.directory?(old) || !name.match?(/\A\d{4}-\d{2}\z/)
+
+        FileUtils.rm_rf(old) if File.mtime(old) < 3.months.ago
+      end
+
+      reported = Receita::RefreshReport.call(release: release, stats: stats)
+      puts "FIM refresh release=#{release} reportado=#{reported} #{stats.to_json}"
+    rescue StandardError => e
+      # Refresh sem supervisão: falha também precisa chegar ao painel.
+      begin
+        Receita::RefreshReport.call(release: release, stats: stats.merge(error: "#{e.class}: #{e.message}"))
+      rescue StandardError => report_error
+        warn "RefreshReport falhou: #{report_error.class}: #{report_error.message}"
+      end
+      raise
     end
-
-    reported = Receita::RefreshReport.call(release: release, stats: stats)
-    puts "FIM refresh release=#{release} reportado=#{reported} #{stats.to_json}"
   end
 end

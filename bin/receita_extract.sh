@@ -16,6 +16,8 @@ TMP="$OUT.tmp"
 n=0
 while IFS= read -r member; do
   unzip -p "$ZIP" "$member" | grep -F -- "\"cnae_principal\":\"$CNAE\"" >> "$TMP"
+  st=("${PIPESTATUS[@]}")
+  if [ "${st[0]}" -ne 0 ]; then echo "ERRO unzip $member (status ${st[0]})" >&2; rm -f "$TMP"; exit 1; fi
   n=$((n+1))
   if [ $((n % 100)) -eq 0 ]; then echo "$(date +%H:%M:%S) shards=$n linhas=$(wc -l < "$TMP")"; fi
 done < <(unzip -Z1 "$ZIP")

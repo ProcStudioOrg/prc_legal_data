@@ -349,8 +349,13 @@ Datas inválidas retornam 400.
 ```bash
 ssh -i ~/.ssh/deploy_prc_legal brpl@168.231.90.14
 cd ~/code/prc_legal_data   # fonte da verdade: WorkingDirectory de infra/legal_data_api.service
-RAILS_ENV=production bundle exec rake receita:refresh RELEASE=2026-09
+mkdir -p storage/receita/2026-09
+RAILS_ENV=production nohup bundle exec rake receita:refresh RELEASE=2026-09 \
+  > storage/receita/2026-09/refresh.log 2>&1 &
+tail -f storage/receita/2026-09/refresh.log
 ```
+
+O refresh dura horas (download e extração de ~124 GB): rode sempre sob `nohup` (ou tmux), nunca numa sessão SSH solta. Reexecutar é seguro: empresas sem mudança são puladas e sociedades `verified` não são recasadas. Falha em qualquer etapa também envia o relatório ao painel, com o campo `error`. Se o MD5 do download divergir, o `.part` é removido e o download recomeça do zero na próxima execução.
 
 Tasks (`lib/tasks/receita.rake`), todas com `RELEASE=AAAA-MM`:
 
