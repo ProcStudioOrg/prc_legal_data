@@ -29,4 +29,18 @@ namespace :receita do
     end
     puts "FIM match release=#{release} #{total.map { |k, v| "#{k}=#{v}" }.join(' ')}"
   end
+
+  desc 'Liga sócios PF a advogados principais com nome único na UF (prospects)'
+  task link_partners: :environment do
+    release = ENV.fetch('RELEASE')
+    dry_run = ENV['DRY_RUN'] == 'true'
+    states = ENV['STATE'].present? ? [ENV['STATE'].upcase] : ReceitaCompany.distinct.pluck(:uf).compact.sort
+
+    total = Hash.new(0)
+    states.each do |state|
+      stats = Receita::PartnerLinker.new(state: state, release: release, dry_run: dry_run, logger: Logger.new($stdout)).call
+      stats.each { |k, v| total[k] += v }
+    end
+    puts "FIM link release=#{release} #{total.map { |k, v| "#{k}=#{v}" }.join(' ')}"
+  end
 end
