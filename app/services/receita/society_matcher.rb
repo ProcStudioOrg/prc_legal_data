@@ -48,6 +48,7 @@ module Receita
         if society.cnpja_match_confidence == VERIFIED && society.cnpj.present?
           @stats[:already_verified] += 1
           touch_synced(society)
+          attach_verified_company(society, lawyer_names)
           next
         end
 
@@ -111,7 +112,7 @@ module Receita
       end
 
       pick, hits = strong.min_by { |c, _| [ c.matriz ? 0 : 1, c.ativa ? 0 : 1, c.cnpj ] }
-      if taken_cnpjs.include?(pick.cnpj)
+      if taken_cnpjs.include?(pick.cnpj) && Society.where(cnpj: pick.cnpj).pick(:id) != society.id
         @stats[:ambiguous_cnpj_taken] += 1
         mark_ambiguous(society, [ pick ])
         return
@@ -130,12 +131,34 @@ module Receita
       ActiveRecord::Base.transaction do
         society.update_columns(cnpj: pick.cnpj, cnpja_match_confidence: VERIFIED, cnpja_synced_at: now)
         ReceitaCompany.where(id: pick.id).update_all(society_id: society.id, match_confidence: VERIFIED, matched_at: now)
-        hits.each do |name|
-          lawyer_id = lawyer_names[name]
-          next if lawyer_id.nil?
+        link_partners(pick.partners.slice(*hits), lawyer_names)
+      end
+    end
 
-          ReceitaPartner.where(id: pick.partners[name]).update_all(lawyer_id: lawyer_id)
-        end
+    # Sociedade já verified (ou promovida por humano): anexa a company do dump
+    # que ainda não tem dona e vincula os sócios que batem com os advogados.
+    def attach_verified_company(society, lawyer_names)
+      company = ReceitaCompany.find_by(cnpj: society.cnpj)
+      return if company.nil? || (company.society_id && company.society_id != society.id)
+
+      @stats[:verified_attached] += 1
+      return if @dry_run
+
+      ActiveRecord::Base.transaction do
+        ReceitaCompany.where(id: company.id).update_all(society_id: society.id, match_confidence: VERIFIED, matched_at: Time.current)
+        partners = ReceitaPartner.pessoa_fisica.where(receita_company_id: company.id, name_normalized: lawyer_names.keys)
+                                 .pluck(:name_normalized, :id).to_h
+        link_partners(partners, lawyer_names)
+      end
+    end
+
+    # partners: nome normalizado => id do ReceitaPartner (já restrito aos hits).
+    def link_partners(partners, lawyer_names)
+      partners.each do |name, partner_id|
+        lawyer_id = lawyer_names[name]
+        next if lawyer_id.nil?
+
+        ReceitaPartner.where(id: partner_id).update_all(lawyer_id: lawyer_id)
       end
     end
 

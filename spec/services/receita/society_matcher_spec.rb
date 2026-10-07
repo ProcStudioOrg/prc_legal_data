@@ -113,6 +113,45 @@ RSpec.describe Receita::SocietyMatcher do
     expect(society.reload.cnpja_synced_at).to be > 1.minute.ago
   end
 
+  it 'sociedade já verified ganha a company sem dona e o vínculo dos sócios' do
+    society = society_with('JA CASADA ADVOGADOS', 'SOCIO UM')
+    company = firm('JA CASADA ADVOGADOS', 'SOCIO UM', 'OUTRO SOCIO')
+    society.update_columns(cnpj: company.cnpj, cnpja_match_confidence: 'verified')
+
+    stats = run
+    expect(stats[:already_verified]).to eq(1)
+    expect(company.reload.society_id).to eq(society.id)
+    expect(company.match_confidence).to eq('verified')
+    expect(company.receita_partners.find_by(nome_socio: 'SOCIO UM').lawyer.full_name).to eq('SOCIO UM')
+    expect(company.receita_partners.find_by(nome_socio: 'OUTRO SOCIO').lawyer_id).to be_nil
+  end
+
+  it 'já verified não rouba company de outra sociedade e respeita dry_run' do
+    society = society_with('JA CASADA ADVOGADOS', 'SOCIO UM')
+    company = firm('JA CASADA ADVOGADOS', 'SOCIO UM')
+    society.update_columns(cnpj: company.cnpj, cnpja_match_confidence: 'verified')
+
+    described_class.new(state: 'PR', release: release, dry_run: true, logger: logger).call
+    expect(company.reload.society_id).to be_nil
+
+    other = create(:society, name: 'OUTRA')
+    company.update_columns(society_id: other.id)
+    run
+    expect(company.reload.society_id).to eq(other.id)
+  end
+
+  it 'sociedade legada com cnpj e confiança nil que casa pela própria firma vira verified, não cnpj_taken' do
+    society = society_with('LEGADA ADVOGADOS', 'SOCIO UM')
+    company = firm('LEGADA ADVOGADOS', 'SOCIO UM')
+    society.update_columns(cnpj: company.cnpj, cnpja_match_confidence: nil)
+
+    stats = run
+    expect(stats[:verified]).to eq(1)
+    expect(stats[:ambiguous_cnpj_taken]).to eq(0)
+    expect(society.reload.cnpja_match_confidence).to eq('verified')
+    expect(company.reload.society_id).to eq(society.id)
+  end
+
   it 'ignora firma de outra UF e sociedade sem advogados' do
     create(:society, name: 'SEM SOCIOS', state: 'PR')
     society_with('FORA DA UF ADVOGADOS', 'SOCIO UM')
