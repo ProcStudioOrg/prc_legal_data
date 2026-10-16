@@ -1,0 +1,31 @@
+CNA OAB — exportação para conferência
+Gerado em: 2026-10-16T07:33:43-03:00
+Repositório verificado como PRIVATE antes da publicação.
+
+Abra conferencia.html diretamente no navegador. Funciona offline, com fotos
+incorporadas, busca, filtros por UF/situação e JSON original de cada consulta.
+
+integral.json: objeto com metadata, results (todos os registros originais),
+legal_data (cadastros normalizados) e photos (arquivos com base64 e SHA-256).
+legal_data.json: array de cadastros normalizados.
+legal_data.jsonl: um cadastro normalizado por linha, todas as UFs.
+legal_data_PR.jsonl e legal_data_MG.jsonl: exportações separadas por UF.
+raw_results/: cópias integrais dos JSON originais, preservando datas dos arquivos.
+images/: fotos vinculadas aos cadastros; nomes compatíveis com cna_picture.
+auxiliary_images/: outras imagens locais preservadas, sem associação inferida.
+attempts.json e scraper.log: estado de tentativas e histórico da coleta.
+manifest.json: contagens e SHA-256 de todos os arquivos do pacote, exceto ele próprio.
+
+VALIDAÇÃO NO LEGAL_DATA
+O formato normalizado reutiliza app_export.to_record, sem alterar as UFs.
+A tarefa atual mg:import do legal_data fixa state=MG e prefixo MG_:
+NÃO use essa tarefa para o lote PR. Um importador CNA precisa respeitar state,
+associar sociedades por inscrição + UF e enviar images/ ao armazenamento
+usado por cna_picture. Este pacote não executa importação nem upload de fotos.
+Campos ausentes permanecem ausentes; registros sem resultado estão em integral.json,
+mas não entram nas exportações de cadastros legal_data.
+
+Contagens: {"snapshot_id": "cna_2026-10-16_073343", "generated_at": "2026-10-16T07:33:43-03:00", "source": "CNA OAB Android app", "repository": "https://github.com/ProcStudioOrg/prc_oab", "repository_visibility_verified": "PRIVATE", "consultations": 305, "found_consultations": 303, "not_found_consultations": 2, "consultations_with_errors": 0, "lawyers": 303, "consultations_by_state": {"MG": 7, "PR": 298}, "lawyers_by_state": {"MG": 6, "PR": 297}, "referenced_photos": 297, "image_files": 300, "lawyers_without_photo": 6, "consultations_without_timestamp": 6}
+
+Este é um retrato fixo dos arquivos presentes na geração. A coleta automática
+continua normalmente e os registros posteriores não entram neste pacote.
