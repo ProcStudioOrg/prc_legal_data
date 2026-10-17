@@ -6,7 +6,7 @@ Rails 8, API-only. Registro de advogados (OAB), sociedades e monitoramento DJEN.
 
 - **Principal x suplementar**: um advogado pode ter várias inscrições OAB, todas apontando para um único `principal_lawyer`. Qualquer OAB do cluster resolve para o principal — nunca trate uma suplementar como pessoa separada.
 - **Auth**: toda rota exige `X-API-KEY`, exceto `/api/v1/version` e `/up`. Key `admin` escreve; `read` só GET.
-- **DJEN**: um monitoramento por pessoa, sempre no principal. `POST /djen/monitorings` é idempotente e é a **exceção à regra de auth** — qualquer key ativa pode ativar (o ProcStudio só tem key `read`); pausar (`DELETE`) continua `admin`, pois pausar em silêncio significa intimação perdida. A base raspada é informativa: OAB válida fora dela (scraper atrasado) é monitorada pela própria OAB (`djen_monitorings.oab_id`, sem `lawyer_id`) e continua sendo esse o monitoramento quando o scraper alcançar; religar ao `Lawyer` é decisão pendente (PRC-1202).
+- **DJEN**: um monitoramento por pessoa, sempre no principal. `POST /djen/monitorings` é idempotente e é a **exceção à regra de auth** — qualquer key ativa pode ativar (o ProcStudio só tem key `read`, uma por ambiente). Cada key que ativa vira assinante (`djen_monitoring_subscribers`); `DELETE` com key `read` tira só a assinatura dela e o monitoramento pausa quando não sobra assinante (um consumidor nunca pausa o de outro); key que não assina recebe 403; `admin` pausa direto. Monitoramento sem assinantes (anterior a 17/10/2026) lê os assinantes do `api_logs` (POSTs 200/201). A base raspada é informativa: OAB válida fora dela (scraper atrasado) é monitorada pela própria OAB (`djen_monitorings.oab_id`, sem `lawyer_id`) e continua sendo esse o monitoramento quando o scraper alcançar; religar ao `Lawyer` é decisão pendente (PRC-1202).
 - Mensagens de erro voltam em pt-BR.
 
 ## DJEN
@@ -28,7 +28,7 @@ Toda PR que muda o comportamento público da API adiciona uma entrada no topo de
 
 ## TODO
 - **Etiquetas cross-repo**: contrato atualizado em `prc_djean/PROMPT-endpoint-intimacoes.md` (campo `etiquetas` + semântica de "nova" com `ativo=false`). Falta o lado ProcStudio: `Djen::IngestBatchService::CAMPOS_INTIMACAO` descarta `etiquetas` hoje — persistir (coluna/migração) e exibir como badges.
-- **DELETE /djen/monitorings vs key read**: o toggle "desligar" do ProcStudio chama DELETE com a key `read` e recebe 403 (admin-only por design) — o flag local desliga, mas o legal_data segue varrendo e empurrando. Decidir: filtrar exibição no ProcStudio (guard local) x refcount por consumidor aqui x relaxar auth do DELETE.
+- **DELETE /djen/monitorings vs key read**: resolvido em 17/10/2026 (assinatura por key, ver regra DJEN). HML e produção usam keys `read` distintas — nunca compartilhar a key entre ambientes, senão o desligar de um pausa o outro.
 - **GET /api/v1/djen/monitorings (index)**: listar OABs ativas da key, para o job de reconciliação do ProcStudio (handoff 2026-07-13, questão 4).
 - **Dedupe por time no ProcStudio**: `djen_intimacoes` tem unique global em `djen_id`; precisa ser por time (`[team_id, djen_id]`) e marcar todos os advogados do time citados via array `advogados` — hoje a intimação fica com o primeiro advogado entregue e some para o segundo.
 

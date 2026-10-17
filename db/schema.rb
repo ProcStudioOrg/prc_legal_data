@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_17_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_17_130000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -66,6 +66,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_17_120000) do
     t.datetime "updated_at", null: false
     t.index ["destination", "pushed_at"], name: "index_djen_deliveries_on_destination_and_pushed_at"
     t.index ["djen_comunicacao_id", "destination"], name: "index_djen_deliveries_on_djen_comunicacao_id_and_destination", unique: true
+  end
+
+  create_table "djen_monitoring_subscribers", force: :cascade do |t|
+    t.boolean "active", default: true, null: false
+    t.bigint "api_key_id", null: false
+    t.datetime "created_at", null: false
+    t.bigint "djen_monitoring_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["api_key_id"], name: "index_djen_monitoring_subscribers_on_api_key_id"
+    t.index ["djen_monitoring_id", "api_key_id"], name: "index_djen_monitoring_subscribers_uniqueness", unique: true
+    t.index ["djen_monitoring_id"], name: "index_djen_monitoring_subscribers_on_djen_monitoring_id"
   end
 
   create_table "djen_monitorings", force: :cascade do |t|
@@ -379,6 +390,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_17_120000) do
   add_foreign_key "api_keys", "users"
   add_foreign_key "djen_comunicacoes", "djen_monitorings"
   add_foreign_key "djen_deliveries", "djen_comunicacoes"
+  add_foreign_key "djen_monitoring_subscribers", "api_keys"
+  add_foreign_key "djen_monitoring_subscribers", "djen_monitorings"
   add_foreign_key "djen_monitorings", "lawyers"
   add_foreign_key "lawyer_societies", "lawyers"
   add_foreign_key "lawyer_societies", "societies"
