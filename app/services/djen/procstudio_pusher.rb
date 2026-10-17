@@ -58,7 +58,7 @@ module Djen
       canceladas.each_slice(BATCH_SIZE) { |lote| push_lote(destination, novas: [], canceladas: lote) }
 
       Rails.logger.info(
-        "Djen: pushed lote to #{destination.key} for #{@monitoring.lawyer.oab_id} " \
+        "Djen: pushed lote to #{destination.key} for #{@monitoring.subject.oab_id} " \
         "(novas=#{novas.size} canceladas=#{canceladas.size})"
       )
       :pushed

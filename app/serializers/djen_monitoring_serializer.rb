@@ -4,7 +4,7 @@ class DjenMonitoringSerializer
   end
 
   def as_json(*)
-    lawyer = @monitoring.lawyer
+    lawyer = @monitoring.subject
     {
       oab_id: lawyer.oab_id,
       full_name: lawyer.full_name,

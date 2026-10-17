@@ -102,4 +102,15 @@ RSpec.describe Djen::Sweep do
     expect(DjenComunicacao.find_by(djen_id: 900).labels).to include("ambiguo")
     expect(principal.reload.djen_advogado_id).to eq(47882) # never overwritten
   end
+
+  context "with a watch of an OAB missing from the scraped base" do
+    let(:monitoring) { DjenMonitoring.create!(oab_id: "PR_54159", source: "procstudio") }
+
+    it "sweeps the OAB itself and learns the advogado_id on the watch" do
+      result = sweep({ "54159/PR" => [ djen_item("id" => 111) ] })
+
+      expect(result.created).to eq(1)
+      expect(monitoring.reload.djen_advogado_id).to eq(47882)
+    end
+  end
 end

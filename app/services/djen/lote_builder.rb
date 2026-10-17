@@ -20,7 +20,7 @@ module Djen
     private
 
     def advogado_monitorado
-      lawyer = @monitoring.lawyer
+      lawyer = @monitoring.subject
       {
         nome: lawyer.full_name,
         numero_oab: lawyer.oab_number,

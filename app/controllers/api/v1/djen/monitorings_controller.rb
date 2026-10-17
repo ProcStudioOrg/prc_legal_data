@@ -8,14 +8,14 @@ module Api
         # app), so activating a watch is allowed to any active key. Deactivation
         # stays admin-only: silently pausing a watch means missed intimações.
         before_action :authorize_write!, only: [ :destroy ]
-        before_action :set_principal_lawyer
+        before_action :set_watch_target
 
         # POST /api/v1/djen/monitorings  { "oab": "PR_54159" }
         # Idempotent: re-activating an existing watch returns 200.
         def create
           retried = false
           begin
-            monitoring = DjenMonitoring.find_or_initialize_by(lawyer: @principal)
+            monitoring = existing_monitoring || new_monitoring
             newly_created = monitoring.new_record?
             reactivating = !newly_created && !monitoring.active
 
@@ -42,7 +42,7 @@ module Api
 
         # GET /api/v1/djen/monitorings/:oab
         def show
-          monitoring = @principal.djen_monitoring
+          monitoring = existing_monitoring
           unless monitoring
             render json: { error: "Advogado não monitorado no DJEN" }, status: :not_found
             return
@@ -53,7 +53,7 @@ module Api
 
         # DELETE /api/v1/djen/monitorings/:oab — pauses; history is kept.
         def destroy
-          monitoring = @principal.djen_monitoring
+          monitoring = existing_monitoring
           unless monitoring
             render json: { error: "Advogado não monitorado no DJEN" }, status: :not_found
             return
@@ -67,20 +67,39 @@ module Api
 
         # Accepts any of the lawyer's OABs (principal or supplementary) and
         # resolves to the principal, so one person never gets two watches.
-        def set_principal_lawyer
+        #
+        # The scraped base is informative only: an OAB missing from it (scraper
+        # behind or unreliable) is still watched, by the OAB itself. Only a
+        # malformed OAB or an unknown UF is refused.
+        def set_watch_target
           oab = params[:oab]
           unless oab.is_a?(String) && oab.present?
             render json: { error: "OAB ID obrigatório (ex: PR_54159)" }, status: :bad_request
             return
           end
 
-          lawyer = Lawyer.find_by(oab_id: oab)
-          unless lawyer
-            render json: { error: "Advogado Não Encontrado - Verifique o OAB ID" }, status: :not_found
-            return
-          end
+          @oab = oab.strip.upcase
+          lawyer = Lawyer.find_by(oab_id: @oab)
+          @principal = lawyer.principal_lawyer || lawyer if lawyer
+          return if @principal || valid_unscraped_oab?(@oab)
 
-          @principal = lawyer.principal_lawyer || lawyer
+          render json: { error: "Advogado Não Encontrado - Verifique o OAB ID" }, status: :not_found
+        end
+
+        # A watch created while the OAB was missing from the base keeps being
+        # the one used after the scraper catches up — a second, lawyer-based
+        # watch would sweep and push the same OAB twice.
+        def existing_monitoring
+          DjenMonitoring.without_lawyer(@oab) || @principal&.djen_monitoring
+        end
+
+        def new_monitoring
+          @principal ? DjenMonitoring.new(lawyer: @principal) : DjenMonitoring.new(oab_id: @oab)
+        end
+
+        def valid_unscraped_oab?(oab)
+          match = oab.match(DjenMonitoring::OAB_FORMAT)
+          match.present? && Api::V1::LawyersController::VALID_STATES.include?(match[:uf])
         end
       end
     end

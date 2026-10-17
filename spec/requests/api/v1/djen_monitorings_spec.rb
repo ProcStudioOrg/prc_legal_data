@@ -80,6 +80,51 @@ RSpec.describe "Api::V1::Djen::Monitorings", type: :request do
       expect(response).to have_http_status(:not_found)
     end
 
+    context "when the OAB is not in the scraped base" do
+      it "watches the OAB itself and enqueues onboarding" do
+        expect {
+          post "/api/v1/djen/monitorings", params: { oab: "PR_132276" }, headers: headers
+        }.to change(DjenMonitoring, :count).by(1)
+          .and have_enqueued_job(Djen::OnboardJob)
+
+        expect(response).to have_http_status(:created)
+        monitoring = DjenMonitoring.last
+        expect(monitoring.lawyer).to be_nil
+        expect(monitoring.oab_id).to eq("PR_132276")
+        body = JSON.parse(response.body)
+        expect(body["oab_id"]).to eq("PR_132276")
+        expect(body["monitored_oabs"]).to eq([ "PR_132276" ])
+      end
+
+      it "is idempotent" do
+        post "/api/v1/djen/monitorings", params: { oab: "PR_132276" }, headers: headers
+
+        expect {
+          post "/api/v1/djen/monitorings", params: { oab: "pr_132276" }, headers: headers
+        }.not_to change(DjenMonitoring, :count)
+
+        expect(response).to have_http_status(:ok)
+      end
+
+      it "keeps using that watch after the scraper adds the lawyer" do
+        post "/api/v1/djen/monitorings", params: { oab: "PR_132276" }, headers: headers
+        orphan = DjenMonitoring.last
+        create(:lawyer, oab_id: "PR_132276", oab_number: "132276", state: "PR")
+
+        expect {
+          post "/api/v1/djen/monitorings", params: { oab: "PR_132276" }, headers: headers
+        }.not_to change(DjenMonitoring, :count)
+
+        expect(orphan.reload.lawyer).to be_nil
+      end
+
+      it "returns 404 for a malformed OAB" do
+        post "/api/v1/djen/monitorings", params: { oab: "PR132276" }, headers: headers
+
+        expect(response).to have_http_status(:not_found)
+      end
+    end
+
     it "returns 400 without an oab param" do
       post "/api/v1/djen/monitorings", params: {}, headers: headers
 
@@ -120,6 +165,15 @@ RSpec.describe "Api::V1::Djen::Monitorings", type: :request do
       expect(body["comunicacoes"]).to eq(
         "total" => 2, "pending_push" => 1, "cancelled" => 0
       )
+    end
+
+    it "returns a watch of an OAB missing from the scraped base" do
+      DjenMonitoring.create!(oab_id: "PR_132276", source: "procstudio")
+
+      get "/api/v1/djen/monitorings/PR_132276", headers: headers
+
+      expect(response).to have_http_status(:ok)
+      expect(JSON.parse(response.body)["oab_id"]).to eq("PR_132276")
     end
 
     it "returns 404 when the lawyer is not monitored" do
