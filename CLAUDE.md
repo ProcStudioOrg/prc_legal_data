@@ -6,7 +6,7 @@ Rails 8, API-only. Registro de advogados (OAB), sociedades e monitoramento DJEN.
 
 - **Principal x suplementar**: um advogado pode ter várias inscrições OAB, todas apontando para um único `principal_lawyer`. Qualquer OAB do cluster resolve para o principal — nunca trate uma suplementar como pessoa separada.
 - **Auth**: toda rota exige `X-API-KEY`, exceto `/api/v1/version` e `/up`. Key `admin` escreve; `read` só GET.
-- **DJEN**: um monitoramento por pessoa, sempre no principal. `POST /djen/monitorings` é idempotente e é a **exceção à regra de auth** — qualquer key ativa pode ativar (o ProcStudio só tem key `read`); pausar (`DELETE`) continua `admin`, pois pausar em silêncio significa intimação perdida.
+- **DJEN**: um monitoramento por pessoa, sempre no principal. `POST /djen/monitorings` é idempotente e é a **exceção à regra de auth** — qualquer key ativa pode ativar (o ProcStudio só tem key `read`); pausar (`DELETE`) continua `admin`, pois pausar em silêncio significa intimação perdida. A base raspada é informativa: OAB válida fora dela (scraper atrasado) é monitorada pela própria OAB (`djen_monitorings.oab_id`, sem `lawyer_id`) e continua sendo esse o monitoramento quando o scraper alcançar; religar ao `Lawyer` é decisão pendente (PRC-1202).
 - Mensagens de erro voltam em pt-BR.
 
 ## DJEN

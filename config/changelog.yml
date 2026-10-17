@@ -4,6 +4,11 @@
 # Campos: version (obrigatório), date (dd/mm/yyyy), note (pt-BR, uma linha), pr (URL ou vazio).
 # Exposto em GET /api/v1/version.
 
+- version: "1.11"
+  date: "17/10/2026"
+  note: "POST /djen/monitorings não exige mais o advogado na base raspada: OAB válida e ausente vira monitoramento da própria OAB (201), em vez de 404"
+  pr:
+
 - version: "1.10"
   date: "26/09/2026"
   note: "POST /lawyer/:oab/procstudio-relationship; CRM faz merge sob lock e valida versão, identidade, idempotência e data do namespace outreach.procstudio_relationship; conflitos retornam 409"

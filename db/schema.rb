@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_06_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_17_120000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -71,13 +71,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_06_120000) do
   create_table "djen_monitorings", force: :cascade do |t|
     t.boolean "active", default: true, null: false
     t.datetime "created_at", null: false
+    t.bigint "djen_advogado_id"
     t.datetime "last_swept_at"
-    t.bigint "lawyer_id", null: false
+    t.bigint "lawyer_id"
+    t.string "oab_id"
     t.datetime "onboarded_at"
     t.string "source", default: "procstudio", null: false
     t.datetime "updated_at", null: false
     t.index ["active"], name: "index_djen_monitorings_on_active"
     t.index ["lawyer_id"], name: "index_djen_monitorings_on_lawyer_id", unique: true
+    t.index ["oab_id"], name: "index_djen_monitorings_on_oab_id", unique: true, where: "(lawyer_id IS NULL)"
+    t.check_constraint "lawyer_id IS NOT NULL OR oab_id IS NOT NULL", name: "djen_monitorings_lawyer_or_oab"
   end
 
   create_table "lawyer_societies", force: :cascade do |t|

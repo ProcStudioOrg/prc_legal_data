@@ -42,4 +42,14 @@ RSpec.describe Djen::LoteBuilder do
     expect(cancelada_item[:motivo_cancelamento]).to eq("Duplicidade")
     expect(cancelada_item[:data_cancelamento]).to eq("2026-07-11")
   end
+
+  it "reports a watch of an OAB missing from the scraped base by the OAB itself" do
+    monitoring = DjenMonitoring.create!(oab_id: "PR_132276", source: "procstudio", djen_advogado_id: 9)
+
+    payload = described_class.new(monitoring).call(novas: [], canceladas: [])
+
+    expect(payload[:advogado_monitorado]).to eq(
+      nome: nil, numero_oab: "132276", uf_oab: "PR", djen_advogado_id: 9
+    )
+  end
 end

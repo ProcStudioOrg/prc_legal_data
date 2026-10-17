@@ -32,4 +32,24 @@ RSpec.describe DjenMonitoring, type: :model do
       expect(monitoring.monitored_lawyers).to contain_exactly(principal, supplementary)
     end
   end
+
+  describe "without a lawyer in the scraped base" do
+    it "is valid with the OAB itself and sweeps only that OAB" do
+      monitoring = described_class.create!(oab_id: "PR_132276", source: "procstudio")
+
+      expect(monitoring.monitored_lawyers.map(&:oab_id)).to eq([ "PR_132276" ])
+      expect(monitoring.subject).to have_attributes(oab_number: "132276", state: "PR")
+    end
+
+    it "requires a well-formed OAB" do
+      expect(described_class.new(source: "procstudio")).not_to be_valid
+      expect(described_class.new(oab_id: "PR132276", source: "procstudio")).not_to be_valid
+    end
+
+    it "allows only one watch per OAB" do
+      described_class.create!(oab_id: "PR_132276", source: "procstudio")
+
+      expect(described_class.new(oab_id: "PR_132276", source: "procstudio")).not_to be_valid
+    end
+  end
 end
