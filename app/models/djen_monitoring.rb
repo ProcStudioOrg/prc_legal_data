@@ -10,6 +10,7 @@ class DjenMonitoring < ApplicationRecord
 
   belongs_to :lawyer, optional: true
   has_many :djen_comunicacoes, dependent: :destroy
+  has_many :subscribers, class_name: "DjenMonitoringSubscriber", dependent: :destroy
 
   validates :lawyer_id, uniqueness: true, allow_nil: true
   validates :oab_id, presence: true, format: { with: OAB_FORMAT }, if: -> { lawyer.nil? }
@@ -38,6 +39,35 @@ class DjenMonitoring < ApplicationRecord
     [ lawyer ] + lawyer.supplementary_lawyers.to_a
   end
 
+  # API keys holding this watch. Watches created before subscribers existed
+  # have no rows: their holders are read from the API log (successful POSTs)
+  # instead of being rewritten.
+  def holder_key_ids
+    return subscribers.active.pluck(:api_key_id) if subscribers.exists?
+
+    legacy_holder_key_ids
+  end
+
+  def subscribe!(api_key)
+    transaction do
+      materialize_legacy_holders!
+      subscribers.find_or_initialize_by(api_key: api_key).update!(active: true)
+    end
+  end
+
+  # Drops this key's hold; the watch pauses only when no holder is left.
+  def unsubscribe!(api_key)
+    transaction do
+      materialize_legacy_holders!
+      subscribers.find_or_initialize_by(api_key: api_key).update!(active: false)
+      update!(active: subscribers.active.exists?)
+    end
+  end
+
+  def monitored_oab_ids
+    monitored_lawyers.map(&:oab_id)
+  end
+
   # Stands in for a Lawyer row with what the OAB itself carries, so the sweep,
   # the advogado_id learner and the lote builder work unchanged.
   class UnscrapedOab
@@ -57,5 +87,21 @@ class DjenMonitoring < ApplicationRecord
 
       @monitoring.update_column(:djen_advogado_id, value)
     end
+  end
+
+  private
+
+  def legacy_holder_key_ids
+    ApiLog.where(endpoint: "/api/v1/djen/monitorings", request_method: "POST",
+                 response_status: [ 200, 201 ], requested_oab: monitored_oab_ids)
+          .where.not(api_key_id: nil).distinct.pluck(:api_key_id)
+  end
+
+  # First write on a legacy watch: record its log-derived holders as rows, so
+  # adding or dropping one key does not hide the others.
+  def materialize_legacy_holders!
+    return if subscribers.exists?
+
+    legacy_holder_key_ids.each { |key_id| subscribers.create!(api_key_id: key_id, active: active) }
   end
 end

@@ -4,6 +4,11 @@
 # Campos: version (obrigatório), date (dd/mm/yyyy), note (pt-BR, uma linha), pr (URL ou vazio).
 # Exposto em GET /api/v1/version.
 
+- version: "1.12"
+  date: "17/10/2026"
+  note: "DELETE /djen/monitorings aceita key read: tira só a assinatura daquela key e pausa quando não sobra nenhuma; key que não assina recebe 403; admin pausa direto"
+  pr:
+
 - version: "1.11"
   date: "17/10/2026"
   note: "POST /djen/monitorings não exige mais o advogado na base raspada: OAB válida e ausente vira monitoramento da própria OAB (201), em vez de 404"

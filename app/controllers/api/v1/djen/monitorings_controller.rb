@@ -4,10 +4,10 @@ module Api
       class MonitoringsController < ApplicationController
         include ApiAuthentication
 
-        # ProcStudio deliberately holds only a read API key (no admin key in the
-        # app), so activating a watch is allowed to any active key. Deactivation
-        # stays admin-only: silently pausing a watch means missed intimações.
-        before_action :authorize_write!, only: [ :destroy ]
+        # ProcStudio holds only read API keys (one per environment). Any active
+        # key may activate a watch; a read key may pause only its own hold, and
+        # the watch stops when the last holder leaves — one consumer can never
+        # silently pause another's intimações. An admin key pauses the watch.
         before_action :set_watch_target
 
         # POST /api/v1/djen/monitorings  { "oab": "PR_54159" }
@@ -22,6 +22,7 @@ module Api
             monitoring.active = true
             monitoring.source = params[:source].presence || monitoring.source || "procstudio"
             monitoring.save!
+            monitoring.subscribe!(@api_key)
           rescue ActiveRecord::RecordNotUnique
             # POST concorrente criou o registro primeiro; idempotência exige reusar.
             raise if retried
@@ -59,7 +60,15 @@ module Api
             return
           end
 
-          monitoring.update!(active: false)
+          if @api_key.admin?
+            monitoring.update!(active: false)
+          elsif monitoring.holder_key_ids.include?(@api_key.id)
+            monitoring.unsubscribe!(@api_key)
+          else
+            render json: { error: "Forbidden: esta API key não monitora este advogado" }, status: :forbidden
+            return
+          end
+
           render json: DjenMonitoringSerializer.new(monitoring).as_json, status: :ok
         end
 

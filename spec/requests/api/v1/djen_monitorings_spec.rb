@@ -184,13 +184,80 @@ RSpec.describe "Api::V1::Djen::Monitorings", type: :request do
   end
 
   describe "DELETE /api/v1/djen/monitorings/:oab" do
-    it "requires an admin key" do
-      create(:djen_monitoring, lawyer: lawyer)
-      read_key = ApiKey.create!(user: user, role: "read", active: true)
+    let(:read_key) { ApiKey.create!(user: user, role: "read", active: true) }
+    let(:other_read_key) { ApiKey.create!(user: user, role: "read", active: true) }
 
-      delete "/api/v1/djen/monitorings/PR_54159", headers: { "X-API-KEY" => read_key.key }
+    def activate_with(key)
+      post "/api/v1/djen/monitorings", params: { oab: "PR_54159" }, headers: { "X-API-KEY" => key.key }
+    end
+
+    def deactivate_with(key)
+      delete "/api/v1/djen/monitorings/PR_54159", headers: { "X-API-KEY" => key.key }
+    end
+
+    it "lets a read key pause the watch it activated" do
+      activate_with(read_key)
+
+      deactivate_with(read_key)
+
+      expect(response).to have_http_status(:ok)
+      expect(lawyer.reload.djen_monitoring.active).to be(false)
+    end
+
+    it "keeps the watch while another key still holds it" do
+      activate_with(read_key)
+      activate_with(other_read_key)
+
+      deactivate_with(read_key)
+
+      expect(response).to have_http_status(:ok)
+      expect(lawyer.reload.djen_monitoring.active).to be(true)
+
+      deactivate_with(other_read_key)
+
+      expect(lawyer.reload.djen_monitoring.active).to be(false)
+    end
+
+    it "refuses a read key that does not hold the watch" do
+      activate_with(read_key)
+
+      deactivate_with(other_read_key)
 
       expect(response).to have_http_status(:forbidden)
+      expect(lawyer.reload.djen_monitoring.active).to be(true)
+    end
+
+    it "reads the holders of a watch created before subscribers from the API log" do
+      monitoring = create(:djen_monitoring, lawyer: lawyer)
+      [ read_key, other_read_key ].each do |key|
+        ApiLog.create!(api_key_id: key.id, user_id: user.id, endpoint: "/api/v1/djen/monitorings", request_method: "POST",
+                       response_status: 201, requested_oab: "PR_54159")
+      end
+
+      deactivate_with(read_key)
+
+      expect(response).to have_http_status(:ok)
+      expect(monitoring.reload.active).to be(true)
+      expect(monitoring.holder_key_ids).to eq([ other_read_key.id ])
+    end
+
+    it "lets an admin key pause the watch regardless of holders" do
+      activate_with(read_key)
+
+      deactivate_with(api_key)
+
+      expect(response).to have_http_status(:ok)
+      expect(lawyer.reload.djen_monitoring.active).to be(false)
+    end
+
+    it "reactivates for a key that paused it" do
+      activate_with(read_key)
+      deactivate_with(read_key)
+
+      activate_with(read_key)
+
+      expect(lawyer.reload.djen_monitoring.active).to be(true)
+      expect(lawyer.djen_monitoring.holder_key_ids).to eq([ read_key.id ])
     end
 
     it "deactivates the monitoring but keeps history" do
