@@ -146,8 +146,9 @@ namespace :receita do
 
       reported = Receita::RefreshReport.call(release: release, stats: stats)
       puts "FIM refresh release=#{release} reportado=#{reported} #{stats.to_json}"
-    rescue StandardError => e
+    rescue StandardError, SystemExit => e
       # Refresh sem supervisão: falha também precisa chegar ao painel.
+      # SystemExit cobre os `abort` de download/extract/ndjson ausente, que antes encerravam sem report.
       begin
         Receita::RefreshReport.call(release: release, stats: stats.merge(error: "#{e.class}: #{e.message}"))
       rescue StandardError => report_error
