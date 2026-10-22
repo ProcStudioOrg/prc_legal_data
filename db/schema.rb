@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_10_17_130000) do
+ActiveRecord::Schema[8.1].define(version: 2026_10_23_000000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -110,12 +110,15 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_17_130000) do
     t.string "address"
     t.text "bio"
     t.string "city"
+    t.string "city_source"
     t.string "cna_link"
     t.string "cna_picture"
+    t.datetime "cna_scraped_at"
     t.string "cnpja_person_id"
     t.datetime "created_at", null: false
     t.jsonb "crm_data", default: {}, null: false
     t.string "detail_url"
+    t.string "discovered_via"
     t.bigint "djen_advogado_id"
     t.string "email"
     t.string "folder_id"
@@ -145,7 +148,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_17_130000) do
     t.string "zip_code"
     t.index "lower((oab_id)::text)", name: "index_lawyers_on_lower_oab_id"
     t.index "state, regexp_replace(TRIM(BOTH FROM translate(lower((city)::text), 'áàâãäéèêëíìîïóòôõöúùûüç'::text, 'aaaaaeeeeiiiiooooouuuuc'::text)), '\\s+'::text, ' '::text, 'g'::text)", name: "index_lawyers_classifier_city"
+    t.index ["cna_scraped_at"], name: "index_lawyers_cna_pending", where: "(cna_scraped_at IS NULL)"
     t.index ["crm_data"], name: "index_lawyers_on_crm_data", using: :gin
+    t.index ["discovered_via"], name: "index_lawyers_on_discovered_via"
     t.index ["djen_advogado_id"], name: "index_lawyers_on_djen_advogado_id"
     t.index ["full_name"], name: "index_lawyers_on_full_name"
     t.index ["has_society"], name: "index_lawyers_on_has_society"
