@@ -26,10 +26,17 @@ module Api
         limit = [[params.fetch(:limit, 50).to_i, 1].max, 100].min
         from_oab = params[:from_oab]
 
+        cna_pending = params[:cna_pending] == "true"
         lawyers = Lawyer
           .where(state: state)
-          .where("situation ILIKE ?", "%regular%")
           .where("is_procstudio IS NULL OR is_procstudio = false")
+        # Pendentes de CNA (caminho inverso) ainda não têm situação: só o filtro
+        # de pendência; os demais continuam restritos a "regular".
+        lawyers = if cna_pending
+          lawyers.where(cna_scraped_at: nil).where.not(discovered_via: nil)
+        else
+          lawyers.where("situation ILIKE ?", "%regular%")
+        end
 
         if from_oab.present?
           unless from_oab.match?(/\A\d+\z/)
@@ -63,6 +70,7 @@ module Api
           meta: {
             returned: serialized.length,
             state: state,
+            cna_pending: cna_pending,
             from_oab: from_oab,
             next_from_oab: next_from_oab
           }
@@ -311,6 +319,15 @@ module Api
           .where(principal_lawyer_id: nil)
 
         lawyers = lawyers.where(state: state) if state.present?
+
+        if params[:city].present?
+          city = I18n.transliterate(params[:city].to_s).downcase.strip.gsub(/\s+/, " ")
+          lawyers = lawyers.where("regexp_replace(trim(translate(lower(city), 'áàâãäéèêëíìîïóòôõöúùûüç', 'aaaaaeeeeiiiiooooouuuuc')), '\\s+', ' ', 'g') = ?", city)
+        end
+
+        if params[:cna_pending] == "true"
+          lawyers = lawyers.where(cna_scraped_at: nil).where.not(discovered_via: nil)
+        end
 
         if params[:scraped] == "true"
           lawyers = lawyers.where("crm_data->'scraper'->>'scraped' = 'true'")
@@ -626,6 +643,8 @@ module Api
           min_lead_score: params[:min_lead_score],
           has_instagram: params[:has_instagram],
           has_website: params[:has_website],
+          city: params[:city],
+          cna_pending: params[:cna_pending],
           from_oab: params[:from_oab]
         }.compact
       end

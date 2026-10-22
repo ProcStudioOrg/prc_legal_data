@@ -21,6 +21,9 @@ class ScraperLawyerSerializer
       instagram: @lawyer.instagram,
       website: @lawyer.website,
       has_society: @lawyer.has_society,
+      cna_scraped_at: @lawyer.cna_scraped_at,
+      discovered_via: @lawyer.discovered_via,
+      city_source: @lawyer.city_source,
       supplementary_oabs: supplementary_oabs,
       societies: serialize_societies,
       crm_data: @lawyer.crm_data || {}

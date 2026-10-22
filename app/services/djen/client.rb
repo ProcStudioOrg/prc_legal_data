@@ -25,30 +25,38 @@ module Djen
 
     # Yields every comunicação item for one OAB over a date window,
     # transparently paginating.
-    def each_comunicacao(numero_oab:, uf_oab:, data_inicio:, data_fim:)
+    def each_comunicacao(numero_oab:, uf_oab:, data_inicio:, data_fim:, &block)
       return enum_for(:each_comunicacao, numero_oab: numero_oab, uf_oab: uf_oab,
                       data_inicio: data_inicio, data_fim: data_fim) unless block_given?
 
+      paginate({ numeroOab: numero_oab, ufOab: uf_oab, dataDisponibilizacaoInicio: data_inicio.to_s,
+                 dataDisponibilizacaoFim: data_fim.to_s }, &block)
+    end
+
+    # Mesma paginação, buscando por nome do advogado (caminho inverso: nome da
+    # Receita -> inscrição OAB). `max_pages` limita o custo para nomes comuns.
+    def each_comunicacao_por_nome(nome_advogado:, data_inicio:, data_fim:, max_pages: nil, &block)
+      return enum_for(:each_comunicacao_por_nome, nome_advogado: nome_advogado, data_inicio: data_inicio,
+                      data_fim: data_fim, max_pages: max_pages) unless block_given?
+
+      paginate({ nomeAdvogado: nome_advogado, dataDisponibilizacaoInicio: data_inicio.to_s,
+                 dataDisponibilizacaoFim: data_fim.to_s }, max_pages: max_pages, &block)
+    end
+
+    private
+
+    def paginate(params, max_pages: nil)
       pagina = 1
       loop do
-        body = get_json(
-          numeroOab: numero_oab,
-          ufOab: uf_oab,
-          dataDisponibilizacaoInicio: data_inicio.to_s,
-          dataDisponibilizacaoFim: data_fim.to_s,
-          itensPorPagina: PER_PAGE,
-          pagina: pagina
-        )
-
+        body = get_json(params.merge(itensPorPagina: PER_PAGE, pagina: pagina))
         items = body["items"] || []
         break if items.empty?
 
         items.each { |item| yield item }
         pagina += 1
+        break if max_pages && pagina > max_pages
       end
     end
-
-    private
 
     def get_json(params)
       uri = URI("#{@base_url}/api/v1/comunicacao")

@@ -4,6 +4,11 @@
 # Campos: version (obrigatório), date (dd/mm/yyyy), note (pt-BR, uma linha), pr (URL ou vazio).
 # Exposto em GET /api/v1/version.
 
+- version: "1.13"
+  date: "23/10/2026"
+  note: "Caminho inverso de descoberta: lawyers.cna_scraped_at/discovered_via/city_source; GET /lawyers?cna_pending=true lista inscrições descobertas por Receita+DJEN ou coadvogado ainda sem ficha CNA; GET /lawyers/crm aceita city e cna_pending; rakes receita:link_partners_via_djen, lawyers:register_discovered e lawyers:normalize_city"
+  pr: "https://github.com/ProcStudioOrg/prc_legal_data/pull/13"
+
 - version: "1.12"
   date: "17/10/2026"
   note: "DELETE /djen/monitorings aceita key read: tira só a assinatura daquela key e pausa quando não sobra nenhuma; key que não assina recebe 403; admin pausa direto"
