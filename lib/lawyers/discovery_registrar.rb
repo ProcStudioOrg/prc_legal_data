@@ -50,11 +50,14 @@ module Lawyers
       origem = { "via" => via, "found_at" => Time.current.iso8601, "evidencia" => evidence }
 
       if existing
-        unless self.class.names_compatible?(existing.full_name, name)
+        if existing.full_name.present? && !self.class.names_compatible?(existing.full_name, name)
           return Outcome.new(status: :conflict, lawyer: existing, reason: "nome divergente: #{existing.full_name.inspect} x #{name.inspect}")
         end
-        if @apply && !existing.crm_data.key?("origem")
-          existing.update_columns(crm_data: existing.crm_data.merge("origem" => origem), updated_at: Time.current)
+        if @apply && (!existing.crm_data.key?("origem") || existing.full_name.blank?)
+          # Registro sem nome (ficha vazia do scrape antigo): o nome do DJEN preenche.
+          changes = { crm_data: existing.crm_data.merge("origem" => origem), updated_at: Time.current }
+          changes[:full_name] = name if existing.full_name.blank?
+          existing.update_columns(changes)
         end
         return Outcome.new(status: :exists, lawyer: existing)
       end
