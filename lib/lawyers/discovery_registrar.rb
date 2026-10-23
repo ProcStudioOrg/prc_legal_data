@@ -15,6 +15,13 @@ module Lawyers
   class DiscoveryRegistrar
     VIAS = %w[receita+djen coadvogado cnsa].freeze
     PSEUDO_OAB_FLOOR = 900_000
+    # Inscrição de sociedade aparece no DJEN com nome de firma; não é pessoa.
+    SOCIETY_NAME = /SOCIEDADE|ADVOGADOS|ADVOCACIA|LTDA|S\/S|\s-\s/i
+    # Acima do percentil 99,9 dos números já raspados no CNA da UF (+15%) não é
+    # inscrição de pessoa plausível: sociedades e erros de digitação do tribunal.
+    # (O máximo bruto não serve: a base tem lixo como PR_535941.)
+    CEILING_SLACK = 1.15
+    CEILING_PERCENTILE = 0.999
 
     Outcome = Struct.new(:status, :lawyer, :reason, keyword_init: true)
 
@@ -35,6 +42,16 @@ module Lawyers
       long.first(short.length) == short
     end
 
+    # Teto plausível da UF (percentil 99,9 do CNA, com folga); nil sem CNA na UF.
+    def ceiling_for(state)
+      @ceilings ||= {}
+      return @ceilings[state] if @ceilings.key?(state)
+
+      p999 = Lawyer.where(state: state).where.not(cna_scraped_at: nil).where("oab_number ~ '^[0-9]+$'")
+                   .pick(Arel.sql("percentile_disc(#{CEILING_PERCENTILE}) WITHIN GROUP (ORDER BY CAST(oab_number AS BIGINT))"))
+      @ceilings[state] = p999 && (p999 * CEILING_SLACK).to_i
+    end
+
     def register(state:, oab_number:, full_name:, via:, evidence:, city: nil, city_source: nil)
       state = state.to_s.upcase
       number = self.class.normalize_number(oab_number)
@@ -44,6 +61,10 @@ module Lawyers
       return Outcome.new(status: :rejected, reason: "número inválido: #{oab_number}") unless number.match?(/\A\d{1,6}\z/) && number.to_i.positive?
       return Outcome.new(status: :rejected, reason: "pseudo-OAB de órgão: #{number}") if number.to_i >= PSEUDO_OAB_FLOOR
       return Outcome.new(status: :rejected, reason: "nome vazio") if name.blank?
+      return Outcome.new(status: :rejected, reason: "nome de sociedade: #{name}") if name.match?(SOCIETY_NAME)
+      if (ceiling = ceiling_for(state)) && number.to_i > ceiling
+        return Outcome.new(status: :rejected, reason: "número #{number} acima do teto plausível da UF (#{ceiling})")
+      end
 
       oab_id = "#{state}_#{number}"
       existing = Lawyer.where("UPPER(oab_id) = ?", oab_id).first
