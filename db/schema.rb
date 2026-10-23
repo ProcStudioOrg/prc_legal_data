@@ -13,6 +13,7 @@
 ActiveRecord::Schema[8.1].define(version: 2026_10_23_000000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+  enable_extension "unaccent"
 
   create_table "api_keys", force: :cascade do |t|
     t.boolean "active"
@@ -241,6 +242,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_10_23_000000) do
     t.string "oab_id"
     t.string "phone"
     t.string "phone_number_2"
+    t.text "raw_address"
     t.string "situacao"
     t.string "society_link"
     t.string "source"

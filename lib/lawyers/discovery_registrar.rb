@@ -17,11 +17,12 @@ module Lawyers
     PSEUDO_OAB_FLOOR = 900_000
     # Inscrição de sociedade aparece no DJEN com nome de firma; não é pessoa.
     SOCIETY_NAME = /SOCIEDADE|ADVOGADOS|ADVOCACIA|LTDA|S\/S|\s-\s/i
-    # Acima do percentil 99,9 dos números já raspados no CNA da UF (+15%) não é
+    # Acima do percentil 99 dos números já raspados no CNA da UF (+15%) não é
     # inscrição de pessoa plausível: sociedades e erros de digitação do tribunal.
-    # (O máximo bruto não serve: a base tem lixo como PR_535941.)
+    # Só conta oab_id da própria UF: `state` mistura suplementares com número de
+    # outra UF (ex.: SP_525116 com state PR), e o máximo bruto tem lixo (PR_535941).
     CEILING_SLACK = 1.15
-    CEILING_PERCENTILE = 0.999
+    CEILING_PERCENTILE = 0.99
 
     Outcome = Struct.new(:status, :lawyer, :reason, keyword_init: true)
 
@@ -42,14 +43,15 @@ module Lawyers
       long.first(short.length) == short
     end
 
-    # Teto plausível da UF (percentil 99,9 do CNA, com folga); nil sem CNA na UF.
+    # Teto plausível da UF (percentil 99 do CNA, com folga); nil sem CNA na UF.
     def ceiling_for(state)
       @ceilings ||= {}
       return @ceilings[state] if @ceilings.key?(state)
 
-      p999 = Lawyer.where(state: state).where.not(cna_scraped_at: nil).where("oab_number ~ '^[0-9]+$'")
-                   .pick(Arel.sql("percentile_disc(#{CEILING_PERCENTILE}) WITHIN GROUP (ORDER BY CAST(oab_number AS BIGINT))"))
-      @ceilings[state] = p999 && (p999 * CEILING_SLACK).to_i
+      pct = Lawyer.where(state: state).where("oab_id LIKE ?", "#{state}\\_%").where.not(cna_scraped_at: nil)
+                  .where("oab_number ~ '^[0-9]+$'")
+                  .pick(Arel.sql("percentile_disc(#{CEILING_PERCENTILE}) WITHIN GROUP (ORDER BY CAST(oab_number AS BIGINT))"))
+      @ceilings[state] = pct && (pct * CEILING_SLACK).to_i
     end
 
     def register(state:, oab_number:, full_name:, via:, evidence:, city: nil, city_source: nil)
