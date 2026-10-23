@@ -32,6 +32,14 @@ RSpec.describe Lawyers::DiscoveryRegistrar do
     expect(outcome.lawyer.crm_data['origem']['via']).to eq('receita+djen')
   end
 
+  it 'preenche o nome de um registro existente sem nome' do
+    create(:lawyer, oab_id: 'PR_17750', oab_number: '17750', state: 'PR', full_name: nil)
+    outcome = register(oab_number: '17750', full_name: 'OSMAR CODOLO FRANCO')
+    expect(outcome.status).to eq(:exists)
+    expect(outcome.lawyer.reload).to have_attributes(full_name: 'OSMAR CODOLO FRANCO')
+    expect(outcome.lawyer.crm_data['origem']['via']).to eq('receita+djen')
+  end
+
   it 'marca conflito quando o nome do existente diverge' do
     create(:lawyer, oab_id: 'PR_50000', oab_number: '50000', state: 'PR', full_name: 'MARIA SOUZA')
     outcome = register(oab_number: '50000', full_name: 'JOAO PEREIRA')
