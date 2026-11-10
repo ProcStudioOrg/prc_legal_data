@@ -1,0 +1,36 @@
+# Teto de inscrições OAB por UF: última inscrição confirmada no CNA.
+# Fonte: prc_oab/oab_frontier.py (app CNA), critério de dez números consecutivos
+# sem resultado depois da última encontrada; evidência em
+# /mnt/dados/prc_oab/fronteira-2026-11-06/ (máquina de Bruno).
+# Gerado de prc_oab/oab_ceilings.json. Número acima do teto não é inscrição
+# emitida: DiscoveryRegistrar e DjenMonitorings recusam (Lawyers::OabCeiling).
+# Quando a frente das OABs novas (prc_oab --newest) passar do teto, regenerar.
+# last_oab: parte numérica; inscription: como o CNA exibe (com sufixo).
+
+AC: { last_oab: 7406, inscription: "7406", checked_at: "2026-11-06" }
+AL: { last_oab: 24460, inscription: "24460A", checked_at: "2026-11-07" }
+AM: { last_oab: 22230, inscription: "22230", checked_at: "2026-11-07" }
+AP: { last_oab: 6232, inscription: "6232", checked_at: "2026-11-07" }
+BA: { last_oab: 93079, inscription: "93079", checked_at: "2026-11-07" }
+CE: { last_oab: 59290, inscription: "59290-A", checked_at: "2026-11-07" }
+DF: { last_oab: 90274, inscription: "90274", checked_at: "2026-11-07" }
+ES: { last_oab: 45007, inscription: "45007", checked_at: "2026-11-07" }
+GO: { last_oab: 79714, inscription: "79714", checked_at: "2026-11-07" }
+MA: { last_oab: 32826, inscription: "32826", checked_at: "2026-11-07" }
+MG: { last_oab: 255216, inscription: "255216", checked_at: "2026-11-07" }
+MS: { last_oab: 32918, inscription: "32918", checked_at: "2026-11-07" }
+MT: { last_oab: 38279, inscription: "38279/A", checked_at: "2026-11-07" }
+PA: { last_oab: 44312, inscription: "44312-A", checked_at: "2026-11-07" }
+PB: { last_oab: 36904, inscription: "36904-A", checked_at: "2026-11-07" }
+PE: { last_oab: 72633, inscription: "72633", checked_at: "2026-11-07" }
+PI: { last_oab: 27370, inscription: "27370", checked_at: "2026-11-07" }
+PR: { last_oab: 138358, inscription: "138358", checked_at: "2026-11-07" }
+RJ: { last_oab: 276359, inscription: "276359", checked_at: "2026-11-07" }
+RN: { last_oab: 24716, inscription: "24716A", checked_at: "2026-11-07" }
+RO: { last_oab: 16618, inscription: "16618", checked_at: "2026-11-08" }
+RR: { last_oab: 3463, inscription: "3463", checked_at: "2026-11-08" }
+RS: { last_oab: 143748, inscription: "143748A", checked_at: "2026-11-07" }
+SC: { last_oab: 80754, inscription: "80754", checked_at: "2026-11-07" }
+SE: { last_oab: 18886, inscription: "18886", checked_at: "2026-11-07" }
+SP: { last_oab: 559604, inscription: "559604", checked_at: "2026-11-06" }
+TO: { last_oab: 15090, inscription: "15.090-A", checked_at: "2026-11-08" }

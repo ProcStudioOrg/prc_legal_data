@@ -17,12 +17,8 @@ module Lawyers
     PSEUDO_OAB_FLOOR = 900_000
     # Inscrição de sociedade aparece no DJEN com nome de firma; não é pessoa.
     SOCIETY_NAME = /SOCIEDADE|ADVOGADOS|ADVOCACIA|LTDA|S\/S|\s-\s/i
-    # Acima do percentil 99 dos números já raspados no CNA da UF (+15%) não é
-    # inscrição de pessoa plausível: sociedades e erros de digitação do tribunal.
-    # Só conta oab_id da própria UF: `state` mistura suplementares com número de
-    # outra UF (ex.: SP_525116 com state PR), e o máximo bruto tem lixo (PR_535941).
-    CEILING_SLACK = 1.15
-    CEILING_PERCENTILE = 0.99
+    # Acima da última inscrição confirmada no CNA da UF (Lawyers::OabCeiling) não é
+    # inscrição emitida: sociedades e erros de digitação do tribunal.
 
     Outcome = Struct.new(:status, :lawyer, :reason, keyword_init: true)
 
@@ -43,15 +39,9 @@ module Lawyers
       long.first(short.length) == short
     end
 
-    # Teto plausível da UF (percentil 99 do CNA, com folga); nil sem CNA na UF.
+    # Última inscrição confirmada no CNA da UF; nil quando a UF não tem teto.
     def ceiling_for(state)
-      @ceilings ||= {}
-      return @ceilings[state] if @ceilings.key?(state)
-
-      pct = Lawyer.where(state: state).where("oab_id LIKE ?", "#{state}\\_%").where.not(cna_scraped_at: nil)
-                  .where("oab_number ~ '^[0-9]+$'")
-                  .pick(Arel.sql("percentile_disc(#{CEILING_PERCENTILE}) WITHIN GROUP (ORDER BY CAST(oab_number AS BIGINT))"))
-      @ceilings[state] = pct && (pct * CEILING_SLACK).to_i
+      Lawyers::OabCeiling.for(state)
     end
 
     def register(state:, oab_number:, full_name:, via:, evidence:, city: nil, city_source: nil)
@@ -65,7 +55,7 @@ module Lawyers
       return Outcome.new(status: :rejected, reason: "nome vazio") if name.blank?
       return Outcome.new(status: :rejected, reason: "nome de sociedade: #{name}") if name.match?(SOCIETY_NAME)
       if (ceiling = ceiling_for(state)) && number.to_i > ceiling
-        return Outcome.new(status: :rejected, reason: "número #{number} acima do teto plausível da UF (#{ceiling})")
+        return Outcome.new(status: :rejected, reason: "número #{number} acima do teto da UF (última inscrição no CNA: #{ceiling})")
       end
 
       oab_id = "#{state}_#{number}"

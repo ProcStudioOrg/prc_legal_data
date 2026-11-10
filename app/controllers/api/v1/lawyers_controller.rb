@@ -428,7 +428,9 @@ module Api
           end
         end
 
-        render json: result, status: :ok
+        # Teto preciso (última inscrição confirmada no CNA), fora do cache: muda só por deploy.
+        render json: result.merge(ceiling: Lawyers::OabCeiling.for(state),
+                                  ceiling_checked_at: Lawyers::OabCeiling.checked_at(state)), status: :ok
       end
 
       # --- Update lawyer action ---

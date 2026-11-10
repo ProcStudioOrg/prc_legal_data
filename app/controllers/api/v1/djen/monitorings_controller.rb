@@ -78,8 +78,9 @@ module Api
         # resolves to the principal, so one person never gets two watches.
         #
         # The scraped base is informative only: an OAB missing from it (scraper
-        # behind or unreliable) is still watched, by the OAB itself. Only a
-        # malformed OAB or an unknown UF is refused.
+        # behind or unreliable) is still watched, by the OAB itself. A malformed
+        # OAB, an unknown UF or a number above the UF ceiling (last inscription
+        # confirmed in the CNA, Lawyers::OabCeiling) is refused.
         def set_watch_target
           oab = params[:oab]
           unless oab.is_a?(String) && oab.present?
@@ -108,7 +109,8 @@ module Api
 
         def valid_unscraped_oab?(oab)
           match = oab.match(DjenMonitoring::OAB_FORMAT)
-          match.present? && Api::V1::LawyersController::VALID_STATES.include?(match[:uf])
+          match.present? && Api::V1::LawyersController::VALID_STATES.include?(match[:uf]) &&
+            !Lawyers::OabCeiling.above?(match[:uf], match[:numero])
         end
       end
     end

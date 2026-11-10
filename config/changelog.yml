@@ -4,6 +4,11 @@
 # Campos: version (obrigatório), date (dd/mm/yyyy), note (pt-BR, uma linha), pr (URL ou vazio).
 # Exposto em GET /api/v1/version.
 
+- version: "1.14"
+  date: "10/11/2026"
+  note: "Teto preciso por UF (última inscrição confirmada no CNA, config/oab_ceilings.yml): GET /lawyer/state/:state/last traz ceiling e ceiling_checked_at; POST /djen/monitorings recusa (404) OAB fora da base acima do teto; descoberta DJEN/Receita usa o teto preciso no lugar do percentil 99"
+  pr:
+
 - version: "1.13"
   date: "23/10/2026"
   note: "Caminho inverso de descoberta: lawyers.cna_scraped_at/discovered_via/city_source; GET /lawyers?cna_pending=true lista inscrições descobertas por Receita+DJEN ou coadvogado ainda sem ficha CNA; GET /lawyers/crm aceita city e cna_pending; rakes receita:link_partners_via_djen, lawyers:register_discovered e lawyers:normalize_city"
