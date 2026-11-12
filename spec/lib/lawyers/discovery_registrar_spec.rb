@@ -55,13 +55,25 @@ RSpec.describe Lawyers::DiscoveryRegistrar do
     expect(Lawyer.count).to eq(0)
   end
 
-  it 'rejeita nome de sociedade e número acima do teto plausível da UF' do
-    create(:lawyer, oab_id: 'PR_131823', oab_number: '131823', state: 'PR', cna_scraped_at: Time.current)
+  it 'rejeita nome de sociedade e número acima do teto da UF mais a folga' do
+    limit = Lawyers::OabCeiling.limit('PR')
     expect(register(full_name: 'I R DE SOUZA - SOCIEDADE INDIVIDUAL DE ADVOCACIA').status).to eq(:rejected)
     expect(register(full_name: 'BLOCK ADVOGADOS').status).to eq(:rejected)
-    expect(register(oab_number: '231540', full_name: 'FULANO DE TAL').reason).to match(/teto plausível/)
-    expect(register(oab_number: '140000', full_name: 'FULANO DE TAL').status).to eq(:created)
+    expect(register(oab_number: (limit + 1).to_s, full_name: 'FULANO DE TAL').reason).to match(/acima do teto da UF/)
+    expect(register(oab_number: "#{limit + 1}A", full_name: 'FULANO DE TAL').status).to eq(:rejected)
+    expect(register(oab_number: limit.to_s, full_name: 'FULANO DE TAL').status).to eq(:created)
     expect(Lawyer.where(cna_scraped_at: nil).count).to eq(1)
+  end
+
+  it 'aceita inscrição emitida depois da conferência do CNA, dentro da folga' do
+    ceiling = Lawyers::OabCeiling.for('PR')
+    expect(register(oab_number: (ceiling + 1).to_s, full_name: 'FULANO DE TAL').status).to eq(:created)
+  end
+
+  it 'usa o teto preciso mesmo sem advogados raspados na UF' do
+    limit = Lawyers::OabCeiling.limit('RR')
+    expect(register(state: 'RR', oab_number: (limit + 1).to_s, full_name: 'FULANO DE TAL').status).to eq(:rejected)
+    expect(register(state: 'RR', oab_number: limit.to_s, full_name: 'FULANO DE TAL').status).to eq(:created)
   end
 
   it 'não grava em dry-run' do

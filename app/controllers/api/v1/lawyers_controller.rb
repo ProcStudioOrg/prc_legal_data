@@ -428,7 +428,11 @@ module Api
           end
         end
 
-        render json: result, status: :ok
+        # Teto preciso (última inscrição confirmada no CNA), fora do cache: muda só por deploy.
+        # ceiling_limit é o maior número aceito de fato: teto + a folga do OabCeiling.
+        render json: result.merge(ceiling: Lawyers::OabCeiling.for(state),
+                                  ceiling_checked_at: Lawyers::OabCeiling.checked_at(state),
+                                  ceiling_limit: Lawyers::OabCeiling.limit(state)), status: :ok
       end
 
       # --- Update lawyer action ---

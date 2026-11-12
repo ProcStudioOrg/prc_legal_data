@@ -118,6 +118,16 @@ RSpec.describe "Api::V1::Djen::Monitorings", type: :request do
         expect(orphan.reload.lawyer).to be_nil
       end
 
+      it "returns 404 for an unscraped OAB above the UF ceiling plus slack" do
+        above = "PR_#{Lawyers::OabCeiling.limit('PR') + 1}"
+
+        expect {
+          post "/api/v1/djen/monitorings", params: { oab: above }, headers: headers
+        }.not_to change(DjenMonitoring, :count)
+
+        expect(response).to have_http_status(:not_found)
+      end
+
       it "returns 404 for a malformed OAB" do
         post "/api/v1/djen/monitorings", params: { oab: "PR132276" }, headers: headers
 
