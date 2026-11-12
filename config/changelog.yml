@@ -7,7 +7,7 @@
 - version: "1.14"
   date: "12/11/2026"
   note: "Teto preciso por UF (última inscrição confirmada no CNA, config/oab_ceilings.yml) com folga de 500 para inscrição emitida depois da conferência: GET /lawyer/state/:state/last traz ceiling, ceiling_checked_at e ceiling_limit (teto + folga, o maior número aceito); POST /djen/monitorings recusa (404) OAB fora da base acima do ceiling_limit; descoberta DJEN/Receita usa a mesma regra no lugar do percentil 99"
-  pr:
+  pr: "https://github.com/ProcStudioOrg/prc_legal_data/pull/17"
 
 - version: "1.13"
   date: "23/10/2026"
