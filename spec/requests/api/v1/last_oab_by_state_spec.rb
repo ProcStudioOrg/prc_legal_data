@@ -10,11 +10,12 @@ RSpec.describe 'GET /api/v1/lawyer/state/:state/last', type: :request do
     get '/api/v1/lawyer/state/pr/last', headers: headers
     expect(response).to have_http_status(:ok)
     body = JSON.parse(response.body)
-    expect(body).to include('oab_number' => '100001', 'ceiling' => 138_358, 'ceiling_checked_at' => '2026-11-07')
+    expect(body).to include('oab_number' => '100001', 'ceiling' => 138_358,
+                            'ceiling_checked_at' => '2026-11-07', 'ceiling_limit' => 138_858)
   end
 
   it 'traz o teto mesmo sem advogados na UF' do
     get '/api/v1/lawyer/state/RR/last', headers: headers
-    expect(JSON.parse(response.body)).to include('total_lawyers' => 0, 'ceiling' => 3463)
+    expect(JSON.parse(response.body)).to include('total_lawyers' => 0, 'ceiling' => 3463, 'ceiling_limit' => 3963)
   end
 end

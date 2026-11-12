@@ -79,8 +79,8 @@ module Api
         #
         # The scraped base is informative only: an OAB missing from it (scraper
         # behind or unreliable) is still watched, by the OAB itself. A malformed
-        # OAB, an unknown UF or a number above the UF ceiling (last inscription
-        # confirmed in the CNA, Lawyers::OabCeiling) is refused.
+        # OAB, an unknown UF or a number above the UF ceiling plus its slack (last
+        # inscription confirmed in the CNA, Lawyers::OabCeiling) is refused.
         def set_watch_target
           oab = params[:oab]
           unless oab.is_a?(String) && oab.present?

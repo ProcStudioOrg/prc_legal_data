@@ -118,8 +118,8 @@ RSpec.describe "Api::V1::Djen::Monitorings", type: :request do
         expect(orphan.reload.lawyer).to be_nil
       end
 
-      it "returns 404 for an unscraped OAB above the UF ceiling" do
-        above = "PR_#{Lawyers::OabCeiling.for('PR') + 1}"
+      it "returns 404 for an unscraped OAB above the UF ceiling plus slack" do
+        above = "PR_#{Lawyers::OabCeiling.limit('PR') + 1}"
 
         expect {
           post "/api/v1/djen/monitorings", params: { oab: above }, headers: headers

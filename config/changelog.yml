@@ -5,8 +5,8 @@
 # Exposto em GET /api/v1/version.
 
 - version: "1.14"
-  date: "10/11/2026"
-  note: "Teto preciso por UF (última inscrição confirmada no CNA, config/oab_ceilings.yml): GET /lawyer/state/:state/last traz ceiling e ceiling_checked_at; POST /djen/monitorings recusa (404) OAB fora da base acima do teto; descoberta DJEN/Receita usa o teto preciso no lugar do percentil 99"
+  date: "12/11/2026"
+  note: "Teto preciso por UF (última inscrição confirmada no CNA, config/oab_ceilings.yml) com folga de 500 para inscrição emitida depois da conferência: GET /lawyer/state/:state/last traz ceiling, ceiling_checked_at e ceiling_limit (teto + folga, o maior número aceito); POST /djen/monitorings recusa (404) OAB fora da base acima do ceiling_limit; descoberta DJEN/Receita usa a mesma regra no lugar do percentil 99"
   pr:
 
 - version: "1.13"

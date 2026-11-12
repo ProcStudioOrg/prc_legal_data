@@ -17,8 +17,9 @@ module Lawyers
     PSEUDO_OAB_FLOOR = 900_000
     # Inscrição de sociedade aparece no DJEN com nome de firma; não é pessoa.
     SOCIETY_NAME = /SOCIEDADE|ADVOGADOS|ADVOCACIA|LTDA|S\/S|\s-\s/i
-    # Acima da última inscrição confirmada no CNA da UF (Lawyers::OabCeiling) não é
-    # inscrição emitida: sociedades e erros de digitação do tribunal.
+    # Acima da última inscrição confirmada no CNA da UF, mais a folga de
+    # Lawyers::OabCeiling::SLACK, não é inscrição emitida: sociedades e erros de
+    # digitação do tribunal.
 
     Outcome = Struct.new(:status, :lawyer, :reason, keyword_init: true)
 
@@ -40,6 +41,7 @@ module Lawyers
     end
 
     # Última inscrição confirmada no CNA da UF; nil quando a UF não tem teto.
+    # A recusa usa Lawyers::OabCeiling.above?, que soma a folga.
     def ceiling_for(state)
       Lawyers::OabCeiling.for(state)
     end
@@ -54,8 +56,10 @@ module Lawyers
       return Outcome.new(status: :rejected, reason: "pseudo-OAB de órgão: #{number}") if number.to_i >= PSEUDO_OAB_FLOOR
       return Outcome.new(status: :rejected, reason: "nome vazio") if name.blank?
       return Outcome.new(status: :rejected, reason: "nome de sociedade: #{name}") if name.match?(SOCIETY_NAME)
-      if (ceiling = ceiling_for(state)) && number.to_i > ceiling
-        return Outcome.new(status: :rejected, reason: "número #{number} acima do teto da UF (última inscrição no CNA: #{ceiling})")
+      if Lawyers::OabCeiling.above?(state, number)
+        return Outcome.new(status: :rejected,
+                           reason: "número #{number} acima do teto da UF " \
+                                   "(última inscrição no CNA: #{ceiling_for(state)} + folga de #{Lawyers::OabCeiling::SLACK})")
       end
 
       oab_id = "#{state}_#{number}"
