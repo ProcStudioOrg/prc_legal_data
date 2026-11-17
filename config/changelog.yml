@@ -4,6 +4,11 @@
 # Campos: version (obrigatório), date (dd/mm/yyyy), note (pt-BR, uma linha), pr (URL ou vazio).
 # Exposto em GET /api/v1/version.
 
+- version: "1.14"
+  date: "17/11/2026"
+  note: "Inscrições com sufixos preservadas na listagem, última OAB e Classificador; GET /lawyers aceita cursor e retorna meta.next_cursor para paginação estável de inscrições com a mesma base numérica, mantendo from_oab numérico e aceitando sufixos; importação CNA corrige o indicador suplementar também em registros existentes; Classificador exclui suplementares sem principal; consulta individual expõe requested_registration, cna_scraped_at, principal_lawyer_id, tipo_inscricao e inscription_date"
+  pr:
+
 - version: "1.13"
   date: "23/10/2026"
   note: "Caminho inverso de descoberta: lawyers.cna_scraped_at/discovered_via/city_source; GET /lawyers?cna_pending=true lista inscrições descobertas por Receita+DJEN ou coadvogado ainda sem ficha CNA; GET /lawyers/crm aceita city e cna_pending; rakes receita:link_partners_via_djen, lawyers:register_discovered e lawyers:normalize_city"

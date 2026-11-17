@@ -44,13 +44,18 @@ namespace :cna do
       scraped_at = (Time.zone.parse(rec["scraped_at"].to_s) rescue nil) || now
       tipo = rec["tipo_inscricao"].to_s.strip.upcase
 
-      if lawyer && lawyer.crm_data.dig("cna_app", "scraped_at") == scraped_at.iso8601
+      supplementary_correction = tipo == "SUPLEMENTAR" && lawyer && !lawyer.suplementary
+      if lawyer && !supplementary_correction && lawyer.crm_data.dig("cna_app", "scraped_at") == scraped_at.iso8601
         stats[:unchanged] += 1
         next
       end
 
       attrs = {}
       anterior = {}
+      if supplementary_correction
+        attrs["suplementary"] = true
+        anterior["suplementary"] = lawyer.suplementary
+      end
       fields.each do |f|
         v = blank_to_nil.call(rec[f])
         next if v.nil?

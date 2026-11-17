@@ -123,4 +123,75 @@ RSpec.describe "GET /api/v1/lawyers", type: :request do
       expect(json["meta"]["next_from_oab"]).to be_nil
     end
   end
+  describe 'suffix registrations' do
+    before do
+      %w[99 100 100-A 100/A 100A 101].each do |number|
+        create(:lawyer, oab_id: "SC_#{number}", oab_number: number, state: 'SC')
+      end
+      create(:lawyer, oab_id: 'SC_invalid', oab_number: 'invalid', state: 'SC')
+    end
+
+    it 'orders by numeric prefix and paginates every identity once with the composite cursor' do
+      seen = []
+      cursor = nil
+      6.times do
+        get '/api/v1/lawyers', params: { state: 'SC', limit: 1, cursor: cursor }, headers: headers
+        expect(response).to have_http_status(:ok)
+        body = JSON.parse(response.body)
+        seen.concat(body['lawyers'].map { |row| row['oab_id'] })
+        cursor = body.dig('meta', 'next_cursor')
+      end
+      expect(seen).to eq(%w[SC_101 SC_100A SC_100/A SC_100-A SC_100 SC_99])
+      expect(cursor).to be_nil
+    end
+
+    it 'also visits all suffix variants through legacy next_from_oab pagination' do
+      seen = []
+      from_oab = nil
+      6.times do
+        get '/api/v1/lawyers', params: { state: 'SC', limit: 1, from_oab: from_oab }, headers: headers
+        expect(response).to have_http_status(:ok)
+        body = JSON.parse(response.body)
+        seen.concat(body['lawyers'].map { |row| row['oab_id'] })
+        from_oab = body.dig('meta', 'next_from_oab')
+      end
+      expect(seen).to eq(%w[SC_101 SC_100A SC_100/A SC_100-A SC_100 SC_99])
+      expect(from_oab).to be_nil
+    end
+
+    it 'uses record identity to break ties even when legacy number representations coincide' do
+      create(:lawyer, oab_id: 'SC_0101', oab_number: '101', state: 'SC')
+      get '/api/v1/lawyers', params: { state: 'SC', limit: 1 }, headers: headers
+      body = JSON.parse(response.body)
+      expect(body['lawyers'].map { |row| row['oab_id'] }).to eq(['SC_0101'])
+      get '/api/v1/lawyers', params: { state: 'SC', limit: 1, cursor: body.dig('meta', 'next_cursor') }, headers: headers
+      expect(response).to have_http_status(:ok)
+      expect(JSON.parse(response.body)['lawyers'].map { |row| row['oab_id'] }).to eq(['SC_101'])
+    end
+
+    it 'accepts the legacy numeric threshold and full suffix as from_oab' do
+      get '/api/v1/lawyers', params: { state: 'SC', from_oab: '100' }, headers: headers
+      expect(response).to have_http_status(:ok)
+      expect(JSON.parse(response.body)['lawyers'].map { |row| row['oab_id'] }).to eq(['SC_99'])
+      get '/api/v1/lawyers', params: { state: 'SC', from_oab: '100/A' }, headers: headers
+      expect(response).to have_http_status(:ok)
+      expect(JSON.parse(response.body)['lawyers'].map { |row| row['oab_id'] }).to eq(%w[SC_100-A SC_100 SC_99])
+    end
+
+    it 'rejects malformed cursors and cursors reused with different filters' do
+      get '/api/v1/lawyers', params: { state: 'SC', cursor: 'not-a-cursor' }, headers: headers
+      expect(response).to have_http_status(:bad_request)
+      get '/api/v1/lawyers', params: { state: 'SC', limit: 1 }, headers: headers
+      cursor = JSON.parse(response.body).dig('meta', 'next_cursor')
+      get '/api/v1/lawyers', params: { state: 'PR', cursor: cursor }, headers: headers
+      expect(response).to have_http_status(:bad_request)
+    end
+
+    it 'returns the highest numeric registration with its original suffix from last_oab_by_state' do
+      create(:lawyer, oab_id: 'SC_102-A', oab_number: '102-A', state: 'SC')
+      get '/api/v1/lawyer/state/SC/last', headers: headers
+      expect(response).to have_http_status(:ok)
+      expect(JSON.parse(response.body)).to include('last_oab' => 'SC_102-A', 'oab_number' => '102-A', 'total_lawyers' => 8)
+    end
+  end
 end

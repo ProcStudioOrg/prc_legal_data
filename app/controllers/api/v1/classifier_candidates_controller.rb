@@ -18,7 +18,7 @@ module Api
         filters = { state: state, city: city, min_oab: min, max_oab: max, order: order }
         # Pick the first matching registration per person BEFORE pagination.
         # Principal OAB in another UF must never affect local numeric ordering.
-        numeric = "CAST(reg.oab_number AS BIGINT)"
+        numeric = Lawyer.oab_numeric_sql("reg.oab_number")
         direction = order == "asc" ? "ASC" : "DESC"
         city_sql = "regexp_replace(trim(translate(lower(reg.city), 'áàâãäéèêëíìîïóòôõöúùûüç', 'aaaaaeeeeiiiiooooouuuuc')), '\\s+', ' ', 'g')"
         sql = Lawyer.sanitize_sql_array([ <<~SQL, state, city, min, max ])
@@ -27,7 +27,8 @@ module Api
                  ROW_NUMBER() OVER (PARTITION BY COALESCE(reg.principal_lawyer_id, reg.id) ORDER BY #{numeric} #{direction}, reg.id #{direction}) AS person_rank
           FROM lawyers reg JOIN lawyers principal ON principal.id = COALESCE(reg.principal_lawyer_id, reg.id)
           WHERE reg.state = ? AND #{city_sql} = ?
-            AND reg.oab_number ~ '^[0-9]{1,10}$' AND #{numeric} BETWEEN ? AND ?
+            AND #{numeric} BETWEEN ? AND ?
+            AND (reg.suplementary IS NOT TRUE OR reg.principal_lawyer_id IS NOT NULL)
             AND lower(COALESCE(reg.situation, '')) NOT SIMILAR TO '%%(cancelado|falecido)%%'
             AND lower(COALESCE(principal.situation, '')) NOT SIMILAR TO '%%(cancelado|falecido)%%'
             AND NOT EXISTS (SELECT 1 FROM lawyers customer WHERE COALESCE(customer.principal_lawyer_id, customer.id) = principal.id AND customer.is_procstudio = true)

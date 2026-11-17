@@ -60,4 +60,43 @@ RSpec.describe 'Classifier candidates', type: :request do
     row = JSON.parse(response.body)['lawyers'].first
     expect(row).to include('city' => 'São José', 'canonical_city' => nil, 'canonical_state' => 'SP')
   end
+  %w[asc desc].each do |order|
+    it "includes distinct suffix identities at inclusive numeric bounds in #{order} order without skipping ties" do
+      candidate('9-A'); candidate('9/A'); candidate('9A'); candidate(10); candidate('100-A')
+      rows = []
+      cursor = nil
+      5.times do
+        get '/api/v1/lawyers/classifier-candidates', params: filters.merge(order: order, cursor: cursor), headers: headers
+        expect(response).to have_http_status(:ok)
+        body = JSON.parse(response.body)
+        rows.concat(body['lawyers'])
+        cursor = body['next_cursor']
+      end
+      expected = %w[PR_9-A PR_9/A PR_9A PR_10 PR_100-A]
+      expected.reverse! if order == 'desc'
+      expect(rows.map { |row| row['matched_oab_id'] }).to eq(expected)
+      expect(rows.map { |row| row['matched_oab_number'] }).to eq(order == 'asc' ? [ 9, 9, 9, 10, 100 ] : [ 100, 10, 9, 9, 9 ])
+      expect(cursor).to be_nil
+    end
+  end
+
+  it 'deduplicates linked suffix registrations under the original principal identity' do
+    principal = create(:lawyer, oab_id: 'SP_999', oab_number: '999', state: 'SP')
+    candidate('20-A', principal_lawyer: principal)
+    candidate('20/A', principal_lawyer: principal)
+    get '/api/v1/lawyers/classifier-candidates', params: filters.merge(limit: 10), headers: headers
+    expect(response).to have_http_status(:ok)
+    rows = JSON.parse(response.body)['lawyers']
+    expect(rows.size).to eq(1)
+    expect(rows.first).to include('oab_id' => 'SP_999', 'matched_oab_id' => 'PR_20-A')
+    expect(rows.first['registrations']).to match_array(%w[SP_999 PR_20-A PR_20/A])
+  end
+
+  it 'withholds unresolved supplemental registrations instead of presenting them as new people' do
+    candidate('20-A', suplementary: true, principal_lawyer_id: nil)
+    candidate(30)
+    get '/api/v1/lawyers/classifier-candidates', params: filters.merge(limit: 10), headers: headers
+    expect(response).to have_http_status(:ok)
+    expect(JSON.parse(response.body)['lawyers'].map { |row| row['oab_id'] }).to eq([ 'PR_30' ])
+  end
 end

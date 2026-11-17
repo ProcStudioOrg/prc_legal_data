@@ -38,12 +38,28 @@ module Api
           lawyers.where("situation ILIKE ?", "%regular%")
         end
 
-        if from_oab.present?
-          unless from_oab.match?(/\A\d+\z/)
-            render json: { error: "from_oab deve ser numérico" }, status: :bad_request
-            return
+        numeric = Lawyer.oab_numeric_sql
+        inscription = 'oab_number COLLATE "C"'
+        lawyers = lawyers.where("#{numeric} IS NOT NULL")
+        cursor_filters = { "state" => state, "cna_pending" => cna_pending, "scraped" => params[:scraped] == "false" }
+        if params[:cursor].present?
+          raise ArgumentError if from_oab.present?
+          cursor = JSON.parse(Base64.urlsafe_decode64(params[:cursor]))
+          unless cursor.is_a?(Hash) && cursor["filters"] == cursor_filters &&
+              cursor["number"].is_a?(Integer) && cursor["id"].is_a?(Integer) &&
+              cursor["inscription"].is_a?(String) && Lawyer::OAB_NUMBER_PATTERN.match?(cursor["inscription"]) &&
+              cursor["number"] == cursor["inscription"].to_i
+            raise ArgumentError
           end
-          lawyers = lawyers.where("CAST(oab_number AS INTEGER) < ?", from_oab.to_i)
+          lawyers = lawyers.where("(#{numeric}, #{inscription}, id) < (?, ?, ?)", cursor["number"], cursor["inscription"], cursor["id"])
+        elsif from_oab.present?
+          raise ArgumentError unless Lawyer::OAB_NUMBER_PATTERN.match?(from_oab)
+          lawyers = if from_oab.match?(/\A[0-9]+\z/)
+            # Preserve the legacy exclusive numeric threshold.
+            lawyers.where("#{numeric} < ?", from_oab.to_i)
+          else
+            lawyers.where("(#{numeric}, #{inscription}) < (?, ?)", from_oab.to_i, from_oab)
+          end
         end
 
         if params[:scraped] == "false"
@@ -52,7 +68,7 @@ module Api
 
         # Fetch limit+1 to determine if there's a next page without an extra COUNT query
         lawyers = lawyers
-          .order(Arel.sql("CAST(oab_number AS INTEGER) DESC"))
+          .order(Arel.sql("#{numeric} DESC, #{inscription} DESC, id DESC"))
           .limit(limit + 1)
           .includes(:supplementary_lawyers, :principal_lawyer, lawyer_societies: { society: { lawyer_societies: :lawyer } })
 
@@ -64,6 +80,11 @@ module Api
 
         last_oab = serialized.any? ? serialized.last[:oab_number] : nil
         next_from_oab = has_more ? last_oab : nil
+        next_cursor = if has_more
+          last = page_records.last
+          Base64.urlsafe_encode64({ filters: cursor_filters, number: last.oab_number.to_i,
+                                   inscription: last.oab_number, id: last.id }.to_json)
+        end
 
         render json: {
           lawyers: serialized,
@@ -72,9 +93,12 @@ module Api
             state: state,
             cna_pending: cna_pending,
             from_oab: from_oab,
-            next_from_oab: next_from_oab
+            next_from_oab: next_from_oab,
+            next_cursor: next_cursor
           }
         }, status: :ok
+      rescue ArgumentError, TypeError, JSON::ParserError
+        render json: { error: "Cursor inválido. Use cursor retornado pela API ou from_oab com número e sufixo opcional." }, status: :bad_request
       rescue => e
         Rails.logger.error("Error in lawyers#index: #{e.message}\n#{e.backtrace&.first(5)&.join("\n")}")
         render json: {
@@ -226,7 +250,11 @@ module Api
         # Combine into the final response
         final_response = {
           principal: principal_response,
-          supplementaries: supplementaries_response
+          supplementaries: supplementaries_response,
+          requested_registration: LawyerSerializer.new(found_lawyer, include_societies: false).as_json.slice(
+            :oab_id, :oab_number, :state, :full_name, :situation, :profession, :suplementary,
+            :is_procstudio, :principal_lawyer_id, :cna_scraped_at, :tipo_inscricao, :inscription_date
+          )
         }
 
         # 7. Render the final JSON response
@@ -411,7 +439,7 @@ module Api
           else
             lawyer = Lawyer
               .where("oab_id LIKE ?", "#{state}_%")
-              .order(Arel.sql("CAST(SPLIT_PART(oab_id, '_', 2) AS INTEGER) DESC"))
+              .order(Arel.sql("#{Lawyer.oab_numeric_sql} DESC NULLS LAST, oab_number COLLATE \"C\" DESC, id DESC"))
               .limit(1)
               .first
 
