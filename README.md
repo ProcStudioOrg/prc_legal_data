@@ -100,7 +100,7 @@ POST /api/v1/lawyer/:oab/crm          # Update CRM data (admin only)
 }
 ```
 
-- Fetching any OAB in a cluster — principal or any supplementary — returns the same payload.
+- Fetching any OAB in a cluster — principal or any supplementary — returns the same `principal` and `supplementaries`. `requested_registration` identifies the exact requested inscription and its own status, supplemental flag, principal link, CNA scrape timestamp, `tipo_inscricao` and `inscription_date` (when imported). The same CNA/link fields are also included in the principal and supplementary objects; a missing `cna_scraped_at` does not confirm a CNA scrape.
 - Clusters are produced offline by a face-match batch run (`rake lawyers:link_face_matches`). Newly scraped supplementaries remain unlinked until the batch is re-run, and are returned as their own `principal` with an empty `supplementaries` array.
 
 #### Batch (scraper ingestion)
@@ -115,7 +115,8 @@ Cursor-paginated list of lawyers filtered by state. Intended for the scraper pip
 |------------|-----------------------------------------------------------------------------|
 | `state`    | **Required.** 2-letter UF (one of the 27 Brazilian states).                 |
 | `limit`    | 1–100, default 50.                                                          |
-| `from_oab` | Numeric cursor. Returns lawyers with `oab_number < from_oab` (sorted desc). |
+| `from_oab` | Legacy exclusive numeric threshold; also accepts a complete inscription such as `80757-A` or `38280/A`. |
+| `cursor`   | Opaque `meta.next_cursor` from the previous response. Use without `from_oab`. |
 | `scraped`  | `false` filters out lawyers already CRM-scraped.                            |
 
 Response:
@@ -123,9 +124,13 @@ Response:
 ```json
 {
   "lawyers": [ ... ],
-  "meta": { "returned": 100, "state": "PR", "from_oab": null, "next_from_oab": "519174" }
+  "meta": { "returned": 100, "state": "PR", "from_oab": null, "next_from_oab": "519174", "next_cursor": "<opaque-token>" }
 }
 ```
+
+Pass `meta.next_cursor` as `cursor` until it is null, keeping `state`, `cna_pending` and `scraped` filters unchanged. The cursor orders by numeric prefix, complete inscription (byte order), then record ID, all descending; it does not skip distinct registrations with the same numeric prefix. `next_from_oab` remains available for legacy consumers. Registration IDs and numbers retain their suffix and punctuation; only the ordering/range key extracts the numeric prefix. Malformed registrations without a supported numeric prefix are excluded from the batch list.
+
+`GET /api/v1/lawyers/classifier-candidates` uses the same numeric prefix for its inclusive `min_oab`/`max_oab` range. Its existing `classifier-candidates-v1` contract, number/ID cursor and person deduplication remain unchanged. `matched_oab_number` is numeric; `matched_oab_id`, `oab_id` and `registrations` retain complete identities (for example `MT_38280/A`). Unlinked supplemental registrations (`suplementary=true`, no principal) are withheld until their identity is resolved. URL-encode IDs when using them in a URL path.
 
 #### CRM
 

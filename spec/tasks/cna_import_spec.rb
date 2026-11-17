@@ -71,4 +71,36 @@ RSpec.describe 'cna:import_app_results', type: :task do
     run_task([ record ], apply: false)
     expect(Lawyer.count).to eq(0)
   end
+  it 'preserva inscrições com sufixos distintos sem unir pessoas pelo nome' do
+    run_task(%w[080757 080757-A 080757/A 080757A].map do |number|
+      record.merge('oab_number' => number, 'state' => 'SC', 'tipo_inscricao' => 'SUPLEMENTAR')
+    end)
+    expect(Lawyer.order(:oab_id).pluck(:oab_id)).to eq(%w[SC_80757 SC_80757-A SC_80757/A SC_80757A])
+    expect(Lawyer.order(:oab_id).pluck(:oab_number)).to eq(%w[80757 80757-A 80757/A 80757A])
+    expect(Lawyer.where.not(principal_lawyer_id: nil)).to be_empty
+  end
+
+  it 'corrige suplementar já importada mesmo com scraped_at igual e conserva vínculos e CRM' do
+    principal = create(:lawyer)
+    existing = create(:lawyer, oab_id: 'SC_80757-A', oab_number: '80757-A', state: 'SC',
+      suplementary: false, principal_lawyer: principal,
+      crm_data: { 'outreach' => { 'stage' => 'conversa' },
+                  'cna_app' => { 'scraped_at' => Time.zone.parse(record['scraped_at']).iso8601 } })
+    input = record.merge('oab_number' => '80757-A', 'state' => 'SC', 'tipo_inscricao' => 'SUPLEMENTAR')
+    run_task([ input ])
+    expect(existing.reload).to have_attributes(suplementary: true, principal_lawyer_id: principal.id, oab_number: '80757-A')
+    expect(existing.crm_data['outreach']).to eq('stage' => 'conversa')
+    expect(existing.crm_data.dig('cna_app', 'anterior', 'suplementary')).to eq(false)
+    updated = existing.updated_at
+    Rake::Task['cna:import_app_results'].reenable
+    run_task([ input ])
+    expect(existing.reload.updated_at).to eq(updated)
+  end
+
+  it 'não desfaz vínculo suplementar existente quando o tipo vem vazio ou ADVOGADO' do
+    existing = create(:lawyer, :supplementary, oab_id: 'PR_135522', oab_number: '135522', state: 'PR')
+    principal_id = existing.principal_lawyer_id
+    run_task([ record ])
+    expect(existing.reload).to have_attributes(suplementary: true, principal_lawyer_id: principal_id)
+  end
 end

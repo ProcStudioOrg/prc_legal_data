@@ -1,6 +1,13 @@
 class Lawyer < ApplicationRecord
   validates :oab_id, uniqueness: { case_sensitive: false }
 
+  # Numeric prefix is only an ordering/range key; punctuation remains part of
+  # the registration identity. CASE guards the cast independently of SQL plans.
+  OAB_NUMBER_PATTERN = /\A[0-9]{1,10}(?:[-\/]?[A-Za-z]+)?\z/
+  def self.oab_numeric_sql(column = "oab_number")
+    "CASE WHEN #{column} ~ '^[0-9]{1,10}([-/]{0,1}[A-Za-z]+){0,1}$' THEN CAST(substring(#{column} from '^[0-9]+') AS BIGINT) END"
+  end
+
   belongs_to :principal_lawyer, class_name: 'Lawyer', optional: true, foreign_key: 'principal_lawyer_id'
   has_many :supplementary_lawyers, class_name: 'Lawyer', foreign_key: 'principal_lawyer_id'
   has_many :lawyer_societies, dependent: :destroy
